@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace SocketStressTest.Properties
+namespace SocketStressTestTools.Properties
 {
 
 
@@ -44,7 +44,7 @@ namespace SocketStressTest.Properties
             {
                 if ( (resourceMan == null) )
                 {
-                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager( "SocketStressTest.Properties.Resources", typeof( Resources ).Assembly );
+                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager( "SocketStressTestTools.Properties.Resources", typeof( Resources ).Assembly );
                     resourceMan = temp;
                 }
                 return resourceMan;

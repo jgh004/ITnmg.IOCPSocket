@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace SocketStressTest.Properties
+namespace SocketStressTestTools.Properties
 {
 
 
