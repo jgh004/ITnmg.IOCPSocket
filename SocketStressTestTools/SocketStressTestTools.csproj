@@ -79,6 +79,16 @@
   <ItemGroup>
     <None Include="App.config" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SocketStressTestInterface\SocketStressTestInterface.csproj">
+      <Project>{aefceba4-0e8e-429d-ad10-4ace3bf794ff}</Project>
+      <Name>SocketStressTestInterface</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\SocketStressTest\SocketStressTest.csproj">
+      <Project>{b44d7d0a-c581-4981-8515-b5b446791fed}</Project>
+      <Name>SocketStressTest</Name>
+    </ProjectReference>
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

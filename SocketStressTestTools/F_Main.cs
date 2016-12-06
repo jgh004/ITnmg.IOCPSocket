@@ -16,5 +16,25 @@ namespace SocketStressTestTools
         {
             InitializeComponent();
         }
+
+        private void F_Main_Load( object sender, EventArgs e )
+        {
+
+        }
+
+        private void bt_Start_Click( object sender, EventArgs e )
+        {
+
+        }
+
+        private void bt_End_Click( object sender, EventArgs e )
+        {
+
+        }
+
+        private void tb_Port_KeyPress( object sender, KeyPressEventArgs e )
+        {
+
+        }
     }
 }
