@@ -32,12 +32,12 @@ namespace SocketStressTest
         private int connCount;
 
         /// <summary>
-        /// 发送超时时间
+        /// 发送超时时间, 以毫秒为单位.
         /// </summary>
         private int sendTimeOut;
 
         /// <summary>
-        /// 接收超时时间
+        /// 接收超时时间, 以毫秒为单位.
         /// </summary>
         private int receiveTimeOut;
 
@@ -96,6 +96,8 @@ namespace SocketStressTest
 
             this.ip = domainOrIP;
             this.port = port;
+            this.sendTimeOut = sendTimeOut;
+            this.receiveTimeOut = receiveTimeOut;
             this.connCount = connectionCount;
             this.semaphore = new Semaphore( 0, this.connCount );
             this.socketTab = new Dictionary<int, SocketClient>( this.connCount );

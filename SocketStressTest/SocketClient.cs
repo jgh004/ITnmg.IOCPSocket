@@ -174,6 +174,7 @@ namespace SocketStressTest
         {
             if ( e.SocketError == SocketError.Success )
             {
+                this.OnSocketConnected( this.id );
             }
             else
             {
