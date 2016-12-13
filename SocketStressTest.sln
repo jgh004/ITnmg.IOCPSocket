@@ -7,7 +7,11 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SocketStressTest", "SocketS
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SocketStressTestTools", "SocketStressTestTools\SocketStressTestTools.csproj", "{F2F6CF86-CF94-40CC-A4E0-48230AC989B7}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SocketStressTestInterface", "SocketStressTestInterface\SocketStressTestInterface.csproj", "{AEFCEBA4-0E8E-429D-AD10-4ACE3BF794FF}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SocketServer.WinForm", "SocketServer.WinForm\SocketServer.WinForm.csproj", "{ED26CB42-B533-4823-872B-164FC0425905}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SocketStressTest.Interface", "SocketStressTest.Interface\SocketStressTest.Interface.csproj", "{AEFCEBA4-0E8E-429D-AD10-4ACE3BF794FF}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SocketServer", "SocketServer\SocketServer.csproj", "{2D636F35-8EC9-4002-8AF6-71CBE237C359}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -23,10 +27,18 @@ Global
 		{F2F6CF86-CF94-40CC-A4E0-48230AC989B7}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F2F6CF86-CF94-40CC-A4E0-48230AC989B7}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F2F6CF86-CF94-40CC-A4E0-48230AC989B7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{ED26CB42-B533-4823-872B-164FC0425905}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{ED26CB42-B533-4823-872B-164FC0425905}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{ED26CB42-B533-4823-872B-164FC0425905}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{ED26CB42-B533-4823-872B-164FC0425905}.Release|Any CPU.Build.0 = Release|Any CPU
 		{AEFCEBA4-0E8E-429D-AD10-4ACE3BF794FF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{AEFCEBA4-0E8E-429D-AD10-4ACE3BF794FF}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{AEFCEBA4-0E8E-429D-AD10-4ACE3BF794FF}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{AEFCEBA4-0E8E-429D-AD10-4ACE3BF794FF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2D636F35-8EC9-4002-8AF6-71CBE237C359}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2D636F35-8EC9-4002-8AF6-71CBE237C359}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2D636F35-8EC9-4002-8AF6-71CBE237C359}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2D636F35-8EC9-4002-8AF6-71CBE237C359}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

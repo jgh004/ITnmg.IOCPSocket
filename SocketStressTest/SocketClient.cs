@@ -4,6 +4,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace SocketStressTest
@@ -11,12 +12,22 @@ namespace SocketStressTest
     /// <summary>
     /// socket 客户端
     /// </summary>
-    public class SocketClient
+    internal class SocketClient
     {
         /// <summary>
         /// 客户端id
         /// </summary>
-        private int id = 0;
+        private readonly int id = 0;
+
+        /// <summary>
+        /// 连接状态
+        /// </summary>
+        private volatile bool connStatus;
+
+		/// <summary>
+		/// 连接重试次数
+		/// </summary>
+		private volatile int connectionRetryCount = 0;
 
         /// <summary>
         /// 内部使用的socket
@@ -39,30 +50,52 @@ namespace SocketStressTest
         private SocketAsyncEventArgs recvArgs;
 
 
-        /// <summary>
-        /// socket 连接完成事件
-        /// </summary>
-        public event Action<int> SocketConnectedEvent;
 
         /// <summary>
-        /// socket 关闭事件
+        /// socket 连接状态变更事件
         /// </summary>
-        public event Action<int> SocketClosedEvent;
+        public event Action<int, bool> StatusChangeEvent;
 
         /// <summary>
         /// socket 异常事件
         /// </summary>
-        public event Action<int, SocketError> SocketErrorEvent;
+        public event Action<int, SocketError> ErrorEvent;
 
-
+		/// <summary>
+		/// 获取连接重试次数
+		/// </summary>
+		public int ConnectionRetryCount
+		{
+			get
+			{
+				return this.connectionRetryCount;
+			}
+			private set
+			{
+				lock ( this )
+				{
+					this.connectionRetryCount = value;
+				}
+			}
+		}
+        
         /// <summary>
-        /// 获取上一次收发操作成功后连接的状态
+        /// 获取连接的状态
         /// </summary>
-        public bool Connected
+        public bool ConnStatus
         {
             get
             {
-                return this.socket.Connected;
+                return this.connStatus;
+            }
+            private set
+			{
+				lock ( this )
+				{
+					this.connStatus = value;
+				}
+
+                this.OnStatusChange( this.id, value );
             }
         }
 
@@ -77,24 +110,22 @@ namespace SocketStressTest
         public SocketClient( int id, IPEndPoint endPoint, int sendTimeOut = 60000, int receiveTimeOut = 60000 )
         {
             this.id = id;
+			this.socket = new Socket( endPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp );
 
-            if ( endPoint.AddressFamily == AddressFamily.InterNetworkV6 )
-            {
-                this.socket = new Socket( endPoint.AddressFamily, SocketType.Stream, ProtocolType.IPv6 );
-            }
-            else
-            {
-                this.socket = new Socket( endPoint.AddressFamily, SocketType.Stream, ProtocolType.IPv4 );
-            }
-
-            this.socket.SendTimeout = sendTimeOut;
+			this.socket.SendTimeout = sendTimeOut;
             this.socket.ReceiveTimeout = receiveTimeOut;
-            this.connArgs = new SocketAsyncEventArgs();
+
+			this.connArgs = new SocketAsyncEventArgs();
+			this.connArgs.RemoteEndPoint = endPoint;
             this.connArgs.Completed += Connect_Completed;
+
             this.sendArgs = new SocketAsyncEventArgs();
-            this.sendArgs.Completed += SendEve_Completed;
-            this.recvArgs = new SocketAsyncEventArgs();
-            this.recvArgs.Completed += ReceiveEve_Completed;
+			this.sendArgs.RemoteEndPoint = endPoint;
+			this.sendArgs.Completed += SendEve_Completed;
+
+			this.recvArgs = new SocketAsyncEventArgs();
+			this.recvArgs.RemoteEndPoint = endPoint;
+			this.recvArgs.Completed += ReceiveEve_Completed;
         }
 
 
@@ -109,6 +140,9 @@ namespace SocketStressTest
             }
         }
 
+        /// <summary>
+        /// 发送数据
+        /// </summary>
         public void SendData()
         {
             if ( !this.socket.SendAsync( sendArgs ) )
@@ -117,6 +151,9 @@ namespace SocketStressTest
             }
         }
 
+        /// <summary>
+        /// 接收数据
+        /// </summary>
         public void ReceiveData()
         {
             if ( !this.socket.ReceiveAsync( recvArgs ) )
@@ -127,26 +164,15 @@ namespace SocketStressTest
 
 
         /// <summary>
-        /// 引发 SocketConnectedEvent 事件 
+        /// 引发 StatusChangeEvent 事件 
         /// </summary>
         /// <param name="id">当前 client id</param>
-        protected void OnSocketConnected( int id )
+        /// <param name="status">当前 client 连接状态</param>
+        protected void OnStatusChange( int id, bool status )
         {
-            if ( this.SocketConnectedEvent != null )
+            if ( this.StatusChangeEvent != null )
             {
-                this.SocketConnectedEvent( id );
-            }
-        }
-
-        /// <summary>
-        /// 引发 SocketClosedEvent 事件
-        /// </summary>
-        /// <param name="id">当前 client id</param>
-        protected void OnSocketClosed( int id )
-        {
-            if ( this.SocketClosedEvent != null )
-            {
-                this.SocketClosedEvent( id );
+                this.StatusChangeEvent( id, status );
             }
         }
 
@@ -155,32 +181,38 @@ namespace SocketStressTest
         /// </summary>
         /// <param name="id">当前 client id</param>
         /// <param name="error"></param>
-        protected void OnSocketError( int id, SocketError error )
+        protected void OnError( int id, SocketError error )
         {
-            if ( this.SocketErrorEvent != null )
+            if ( this.ErrorEvent != null )
             {
-                this.SocketErrorEvent( id, error );
+				this.ConnStatus = false;
+				this.socket.Close();
+                this.ErrorEvent( id, error );
             }
         }
 
 
 
-        /// <summary>
-        /// 异步连接完成处理
-        /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
-        private void Connect_Completed( object sender, SocketAsyncEventArgs e )
-        {
-            if ( e.SocketError == SocketError.Success )
-            {
-                this.OnSocketConnected( this.id );
-            }
-            else
-            {
-                this.OnSocketError( this.id, e.SocketError );
-            }
-        }
+		/// <summary>
+		/// 异步连接完成处理
+		/// </summary>
+		/// <param name="sender"></param>
+		/// <param name="e"></param>
+		private void Connect_Completed( object sender, SocketAsyncEventArgs e )
+		{
+			if ( e.SocketError == SocketError.Success )
+			{
+				this.ConnStatus = true;
+			}
+			else
+			{
+				this.ConnStatus = false;
+
+				this.OnError( this.id, e.SocketError );
+			}
+
+			this.ConnectionRetryCount++;
+		}
 
         /// <summary>
         /// 异步发送完成处理
@@ -194,7 +226,7 @@ namespace SocketStressTest
             }
             else
             {
-                this.OnSocketError( this.id, e.SocketError );
+                this.OnError( this.id, e.SocketError );
             }
         }
 
@@ -210,7 +242,7 @@ namespace SocketStressTest
             }
             else
             {
-                this.OnSocketError( this.id, e.SocketError );
+                this.OnError( this.id, e.SocketError );
             }
         }
     }
