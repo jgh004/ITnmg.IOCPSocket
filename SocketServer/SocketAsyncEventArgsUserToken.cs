@@ -7,14 +7,9 @@ using System.Threading.Tasks;
 namespace SocketServer
 {
 	/// <summary>
-	/// Socket 用户或程序相关对象类
+	/// SocketAsyncEventArgs 用户或程序相关对象类
 	/// </summary>
-	public class SocketUserToken
+	public class SocketAsyncEventArgsUserToken
 	{
-
-		public byte[] SendBuffer
-		{
-			get;set;
-		}
 	}
 }

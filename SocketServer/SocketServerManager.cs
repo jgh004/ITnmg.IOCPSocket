@@ -14,6 +14,14 @@ namespace SocketServer
 	/// </summary>
 	public class SocketServerManager
     {
+		/// <summary>
+		/// SocketAsyncEventArgs 池
+		/// </summary>
+		private SocketAsyncEventArgsPool argsPool;
+
+		/// <summary>
+		/// 监听用的 socket
+		/// </summary>
 		private Socket socket;
 
 		/// <summary>
@@ -27,9 +35,14 @@ namespace SocketServer
 		private int port;
 
 		/// <summary>
-		/// 要创建的连接数量
+		/// 允许的最大连接数量
 		/// </summary>
-		private int connCount;
+		private int maxConnCount;
+
+		/// <summary>
+		/// 一次读写socket的最大缓存字节数
+		/// </summary>
+		private int maxBufferSize;
 
 		/// <summary>
 		/// 发送超时时间, 以毫秒为单位.
@@ -62,7 +75,12 @@ namespace SocketServer
 		/// </summary>
 		public event EventHandler<Exception> ErrorEvent;
 
-		public event EventHandler<int> ConnectedCountChange;
+		/// <summary>
+		/// Socket 连接发生的异常
+		/// </summary>
+		public event EventHandler<SocketError> SocketConnectionErrorEvent;
+
+		public event EventHandler<int> ConnectedCountChangeEvent;
 
 
 		/// <summary>
@@ -83,7 +101,7 @@ namespace SocketServer
 		{
 			get
 			{
-				return this.connCount;
+				return this.maxConnCount;
 			}
 		}
 
@@ -94,7 +112,18 @@ namespace SocketServer
 		}
 
 
-		public void Init( string domainOrIP, int port, int connectionCount, int sendTimeOut = 6000, int receiveTimeOut = 6000 )
+
+
+		/// <summary>
+		/// 初始化服务端
+		/// </summary>
+		/// <param name="domainOrIP"></param>
+		/// <param name="port"></param>
+		/// <param name="maxConnectionCount"></param>
+		/// <param name="maxBufferSize"></param>
+		/// <param name="sendTimeOut"></param>
+		/// <param name="receiveTimeOut"></param>
+		public void Init( string domainOrIP, int port, int maxConnectionCount, int maxBufferSize, int sendTimeOut = 6000, int receiveTimeOut = 6000 )
 		{
 			if ( string.IsNullOrWhiteSpace( domainOrIP ) )
 			{
@@ -105,55 +134,128 @@ namespace SocketServer
 			this.port = port;
 			this.sendTimeOut = sendTimeOut;
 			this.receiveTimeOut = receiveTimeOut;
-			this.connCount = connectionCount;
-			this.semaphore = new Semaphore( 0, this.connCount );
-			this.waitConnectionList = new Dictionary<int, Socket>( this.connCount );
-			this.connectedList = new Dictionary<int, Socket>( this.connCount );
+			this.maxConnCount = maxConnectionCount;
+			this.maxBufferSize = maxBufferSize;
+			this.semaphore = new Semaphore( 0, this.maxConnCount );
+			this.waitConnectionList = new Dictionary<int, Socket>( this.maxConnCount );
+			this.connectedList = new Dictionary<int, Socket>( this.maxConnCount );
+			//读写分离, 每个socket连接需要2个SocketAsyncEventArgs.
+			this.argsPool = new SocketServer.SocketAsyncEventArgsPool( maxConnectionCount * 2, ArgsSendAndReceive_Completed, 1 );
 		}
 
-
+		/// <summary>
+		/// 开始监听连接
+		/// </summary>
+		/// <returns></returns>
 		public async Task StartListen()
 		{
-			await Dns.GetHostAddressesAsync( this.ip ).ContinueWith( f =>
+			if ( this.socket == null )
 			{
-				if ( f.Exception != null )
+				await Dns.GetHostAddressesAsync( this.ip ).ContinueWith( f =>
 				{
-					this.OnError( this, f.Exception.GetBaseException() );
-					return;
-				}
+					if ( f.Result == null || f.Result.Length == 0 )
+					{
+						throw new Exception( "域名或ip地址不正确,未能解析." );
+					}
 
-				if ( f.Result == null || f.Result.Length == 0 )
+					IPAddress addr = f.Result[0];
+					IPEndPoint point = new IPEndPoint( addr, this.port );
+
+					this.socket = new Socket( point.AddressFamily, SocketType.Stream, ProtocolType.Tcp );
+					this.socket.Bind( point );
+					this.socket.Listen( maxConnCount );
+
+					SocketAsyncEventArgs args = new SocketAsyncEventArgs();
+					args.Completed += Args_Completed;
+
+					if ( !this.socket.AcceptAsync( args ) )
+					{
+						Args_Completed( this.socket, args );
+					}
+				} ).ContinueWith( f =>
 				{
-					this.OnError( this, new Exception( "域名或ip地址不正确,未能解析." ) );
-					return;
-				}
-
-				IPAddress addr = f.Result[0];
-				IPEndPoint point = new IPEndPoint( addr, this.port );
-
-				this.socket = new Socket( point.AddressFamily, SocketType.Stream, ProtocolType.Tcp );
-				this.socket.Bind( point );
-				this.socket.Listen( this.TotalCount );
-				SocketAsyncEventArgs args = new SocketAsyncEventArgs();
-				args.Completed += Args_Completed;
-
-				if ( !this.socket.AcceptAsync( args ) )
-				{
-					Args_Completed( this.socket, args );
-				}
-			} ).ContinueWith( f =>
-			{
-				if ( f.Exception != null )
-				{
-					this.OnError( this, f.Exception.GetBaseException() );
-				}
-			} );
+					if ( f.Exception != null )
+					{
+						this.OnError( this, f.Exception.GetBaseException() );
+					}
+				} );
+			}
 		}
 
+		/// <summary>
+		/// 关闭监听
+		/// </summary>
+		public void Close()
+		{
+			if ( this.socket != null )
+			{
+				try
+				{
+					this.socket.Shutdown( SocketShutdown.Both );
+					this.socket.Close( sendTimeOut );
+				}
+				catch ( Exception ex )
+				{
+				}
+				finally
+				{
+					this.socket = null;
+				}
+			}
+		}
+
+		/// <summary>
+		/// 监听 socket 接收到新连接
+		/// </summary>
+		/// <param name="sender"></param>
+		/// <param name="e"></param>
 		private void Args_Completed( object sender, SocketAsyncEventArgs e )
 		{
-			e.AcceptSocket.ReceiveAsync( new SocketAsyncEventArgs() );
-			e.AcceptSocket.SendAsync( new SocketAsyncEventArgs() );
+			if ( e.SocketError == SocketError.Success )
+			{
+				var receiveArgs = argsPool.Pop();
+
+				if ( !e.AcceptSocket.ReceiveAsync( receiveArgs ) )
+				{
+					ArgsSendAndReceive_Completed( e.AcceptSocket, receiveArgs );
+				}
+
+				var sendArgs = argsPool.Pop();
+
+				if ( !e.AcceptSocket.SendAsync( sendArgs ) )
+				{
+					ArgsSendAndReceive_Completed( e.AcceptSocket, sendArgs );
+				}
+			}
+			else
+			{
+				OnSocketConnectionError( e.AcceptSocket, e.SocketError );
+			}
+		}
+
+		/// <summary>
+		/// Socket 发送与接收完成事件执行的方法
+		/// </summary>
+		/// <param name="sender"></param>
+		/// <param name="e"></param>
+		private void ArgsSendAndReceive_Completed( object sender, SocketAsyncEventArgs e )
+		{
+			if ( e.SocketError == SocketError.Success )
+			{
+				switch ( e.LastOperation )
+				{
+					case SocketAsyncOperation.Receive:
+						break;
+					case SocketAsyncOperation.Send:
+						break;
+					default:
+						break;
+				}
+			}
+			else
+			{
+				OnSocketConnectionError( e.AcceptSocket, e.SocketError );
+			}
 		}
 
 
@@ -162,12 +264,25 @@ namespace SocketServer
 		/// 引发 Error 事件
 		/// </summary>
 		/// <param name="sender"></param>
-		/// <param name="ex"></param>
-		protected void OnError( object sender, Exception ex )
+		/// <param name="e"></param>
+		protected void OnError( object sender, Exception e )
 		{
 			if ( this.ErrorEvent != null )
 			{
-				this.ErrorEvent( sender, ex );
+				this.ErrorEvent( sender, e );
+			}
+		}
+
+		/// <summary>
+		/// 引发 SocketConnectionError 事件
+		/// </summary>
+		/// <param name="sender"></param>
+		/// <param name="e"></param>
+		protected void OnSocketConnectionError( object sender, SocketError e )
+		{
+			if ( this.SocketConnectionErrorEvent != null )
+			{
+				this.SocketConnectionErrorEvent( sender, e );
 			}
 		}
 	}

@@ -29,6 +29,15 @@ namespace SocketServer.WinForm
 			
 		}
 
-
+		private void button1_Click( object sender, EventArgs e )
+		{
+			server.Init("aaaa", 9000, 100, 32 * 1024);
+			server.StartListen().ContinueWith( f =>
+			{
+				if ( f.IsFaulted )
+				{
+				}
+			} );
+		}
 	}
 }
