@@ -26,12 +26,12 @@ namespace SocketServer.WinForm
 		{
 			sync = SynchronizationContext.Current;
 			this.server = new SocketServerManager();
-			
+
 		}
 
 		private void button1_Click( object sender, EventArgs e )
 		{
-			server.Init("aaaa", 9000, 100, 32 * 1024);
+			server.Init( "localhost", 9000, 100, 32 * 1024 );
 			server.StartListen().ContinueWith( f =>
 			{
 				if ( f.IsFaulted )

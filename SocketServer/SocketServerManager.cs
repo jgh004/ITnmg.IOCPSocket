@@ -27,7 +27,12 @@ namespace SocketServer
 		/// <summary>
 		/// 服务端ip
 		/// </summary>
-		private string ip;
+		private string domainOrIP;
+
+		/// <summary>
+		/// 当使用域名连接时, 如果返回多个ip, 是否首选ipv4, 否则用ipv6.
+		/// </summary>
+		private bool firstIPv4;
 
 		/// <summary>
 		/// 服务端端口
@@ -121,16 +126,19 @@ namespace SocketServer
 		/// <param name="port"></param>
 		/// <param name="maxConnectionCount"></param>
 		/// <param name="maxBufferSize"></param>
+		/// <param name="firstIPv4"></param>
 		/// <param name="sendTimeOut"></param>
 		/// <param name="receiveTimeOut"></param>
-		public void Init( string domainOrIP, int port, int maxConnectionCount, int maxBufferSize, int sendTimeOut = 6000, int receiveTimeOut = 6000 )
+		public void Init( string domainOrIP, int port, int maxConnectionCount
+			, int maxBufferSize = 32 * 1024, bool firstIPv4 = true, int sendTimeOut = 6000, int receiveTimeOut = 6000 )
 		{
 			if ( string.IsNullOrWhiteSpace( domainOrIP ) )
 			{
 				throw new ArgumentNullException( "domainOrIP" );
 			}
 			
-			this.ip = domainOrIP;
+			this.domainOrIP = domainOrIP;
+			this.firstIPv4 = firstIPv4;
 			this.port = port;
 			this.sendTimeOut = sendTimeOut;
 			this.receiveTimeOut = receiveTimeOut;
@@ -151,14 +159,14 @@ namespace SocketServer
 		{
 			if ( this.socket == null )
 			{
-				await Dns.GetHostAddressesAsync( this.ip ).ContinueWith( f =>
+				await Dns.GetHostAddressesAsync( this.domainOrIP ).ContinueWith( f =>
 				{
 					if ( f.Result == null || f.Result.Length == 0 )
 					{
 						throw new Exception( "域名或ip地址不正确,未能解析." );
 					}
-
-					IPAddress addr = f.Result[0];
+					
+					var addr = f.Result.FirstOrDefault( k => k.AddressFamily == (firstIPv4 ? AddressFamily.InterNetwork : AddressFamily.InterNetworkV6));
 					IPEndPoint point = new IPEndPoint( addr, this.port );
 
 					this.socket = new Socket( point.AddressFamily, SocketType.Stream, ProtocolType.Tcp );
@@ -176,6 +184,7 @@ namespace SocketServer
 				{
 					if ( f.Exception != null )
 					{
+						this.Close();
 						this.OnError( this, f.Exception.GetBaseException() );
 					}
 				} );
