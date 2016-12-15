@@ -28,7 +28,7 @@ namespace SocketStressTestTools
         private void bt_Start_Click( object sender, EventArgs e )
         {
 			SocketStressTest.SocketClientManager cm = new SocketStressTest.SocketClientManager();
-			cm.Init("192.168.3.1", 80, 1000, 10, 10);
+			cm.Init( this.tb_IP.Text.Trim(), Convert.ToInt32( this.tb_Port.Text.Trim() ), Convert.ToInt32( this.tb_ConnectionCount.Text.Trim() ), 10, 10 );
 			cm.ConnectedCountChange += ( a, b ) =>
 			{
 				this.sync.Post(f=>

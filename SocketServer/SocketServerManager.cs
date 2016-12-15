@@ -13,7 +13,7 @@ namespace SocketServer
 	/// Socket服务端
 	/// </summary>
 	public class SocketServerManager
-    {
+	{
 		/// <summary>
 		/// SocketAsyncEventArgs 池
 		/// </summary>
@@ -60,7 +60,7 @@ namespace SocketServer
 		private int receiveTimeOut;
 
 		/// <summary>
-		/// 信号量,初始设为0,让所有线程等待
+		/// 信号量,初始设为 maxConnCount
 		/// </summary>
 		private Semaphore semaphore;
 
@@ -79,6 +79,11 @@ namespace SocketServer
 		/// 异常事件
 		/// </summary>
 		public event EventHandler<Exception> ErrorEvent;
+
+		/// <summary>
+		/// 服务端运行状态变化事件
+		/// </summary>
+		public event EventHandler<bool> ServerStateChangeEvent;
 
 		/// <summary>
 		/// Socket 连接发生的异常
@@ -122,29 +127,27 @@ namespace SocketServer
 		/// <summary>
 		/// 初始化服务端
 		/// </summary>
-		/// <param name="domainOrIP"></param>
-		/// <param name="port"></param>
-		/// <param name="maxConnectionCount"></param>
-		/// <param name="maxBufferSize"></param>
-		/// <param name="firstIPv4"></param>
+		/// <param name="domainOrIP">要监听的域名或IP</param>
+		/// <param name="port">端口</param>
+		/// <param name="maxConnectionCount">允许的最大连接数</param>
+		/// <param name="maxBufferSize">socket 读写缓存大小</param>
+		/// <param name="firstIPv4">如果用域名初始化,可能返回多个ipv4和ipv6地址,指定是否首选ipv4地址.</param>
 		/// <param name="sendTimeOut"></param>
 		/// <param name="receiveTimeOut"></param>
 		public void Init( string domainOrIP, int port, int maxConnectionCount
 			, int maxBufferSize = 32 * 1024, bool firstIPv4 = true, int sendTimeOut = 6000, int receiveTimeOut = 6000 )
 		{
-			if ( string.IsNullOrWhiteSpace( domainOrIP ) )
+			if ( domainOrIP != null )
 			{
-				throw new ArgumentNullException( "domainOrIP" );
+				this.domainOrIP = domainOrIP.Trim();
 			}
-			
-			this.domainOrIP = domainOrIP;
 			this.firstIPv4 = firstIPv4;
 			this.port = port;
 			this.sendTimeOut = sendTimeOut;
 			this.receiveTimeOut = receiveTimeOut;
 			this.maxConnCount = maxConnectionCount;
 			this.maxBufferSize = maxBufferSize;
-			this.semaphore = new Semaphore( 0, this.maxConnCount );
+			this.semaphore = new Semaphore( this.maxConnCount, this.maxConnCount );
 			this.waitConnectionList = new Dictionary<int, Socket>( this.maxConnCount );
 			this.connectedList = new Dictionary<int, Socket>( this.maxConnCount );
 			//读写分离, 每个socket连接需要2个SocketAsyncEventArgs.
@@ -154,23 +157,41 @@ namespace SocketServer
 		/// <summary>
 		/// 开始监听连接
 		/// </summary>
-		/// <returns></returns>
-		public async Task StartListen()
+		/// <returns>返回实际监听的 EndPoint</returns>
+		public async Task<IPEndPoint> StartListen()
 		{
-			if ( this.socket == null )
-			{
-				await Dns.GetHostAddressesAsync( this.domainOrIP ).ContinueWith( f =>
-				{
-					if ( f.Result == null || f.Result.Length == 0 )
-					{
-						throw new Exception( "域名或ip地址不正确,未能解析." );
-					}
-					
-					var addr = f.Result.FirstOrDefault( k => k.AddressFamily == (firstIPv4 ? AddressFamily.InterNetwork : AddressFamily.InterNetworkV6));
-					IPEndPoint point = new IPEndPoint( addr, this.port );
+			IPEndPoint result = null;
 
-					this.socket = new Socket( point.AddressFamily, SocketType.Stream, ProtocolType.Tcp );
-					this.socket.Bind( point );
+			try
+			{
+				if ( this.socket == null )
+				{
+					if ( !string.IsNullOrWhiteSpace( this.domainOrIP ) )
+					{
+						IPAddress ipAddr = null;
+
+						if ( !IPAddress.TryParse( domainOrIP, out ipAddr ) )
+						{
+							var addrs = await Dns.GetHostAddressesAsync( this.domainOrIP );
+
+							if ( addrs == null || addrs.Length == 0 )
+							{
+								throw new Exception( "域名或ip地址不正确,未能解析." );
+							}
+
+							ipAddr = addrs.FirstOrDefault( k => k.AddressFamily == (firstIPv4 ? AddressFamily.InterNetwork : AddressFamily.InterNetworkV6) );
+							ipAddr = ipAddr ?? addrs.First();
+						}
+
+						result = new IPEndPoint( ipAddr, this.port );
+					}
+					else
+					{
+						result = new IPEndPoint( firstIPv4 ? IPAddress.Any : IPAddress.IPv6Any, port );
+					}
+
+					this.socket = new Socket( result.AddressFamily, SocketType.Stream, ProtocolType.Tcp );
+					this.socket.Bind( result );
 					this.socket.Listen( maxConnCount );
 
 					SocketAsyncEventArgs args = new SocketAsyncEventArgs();
@@ -180,15 +201,22 @@ namespace SocketServer
 					{
 						Args_Completed( this.socket, args );
 					}
-				} ).ContinueWith( f =>
+
+					OnServerStateChange( this, true );
+				}
+				else
 				{
-					if ( f.Exception != null )
-					{
-						this.Close();
-						this.OnError( this, f.Exception.GetBaseException() );
-					}
-				} );
+					result = this.socket.LocalEndPoint as IPEndPoint;
+					OnError( this, new Exception( "服务端已经在运行中" ) );
+				}
 			}
+			catch ( Exception ex )
+			{
+				this.Close();
+				this.OnError( this, ex );
+			}
+
+			return result;
 		}
 
 		/// <summary>
@@ -200,18 +228,36 @@ namespace SocketServer
 			{
 				try
 				{
-					this.socket.Shutdown( SocketShutdown.Both );
+					try
+					{
+						this.socket.Shutdown( SocketShutdown.Both );
+					}
+					catch
+					{
+					}
+
 					this.socket.Close( sendTimeOut );
+					this.semaphore.Close();
 				}
 				catch ( Exception ex )
 				{
+					OnError( this, ex );
 				}
 				finally
 				{
-					this.socket = null;
+					if ( this.socket != null )
+					{
+						this.socket.Close();
+						this.socket = null;
+					}
+					this.semaphore = new Semaphore( this.maxConnCount, this.maxConnCount );
+					OnServerStateChange( this, false );
 				}
 			}
 		}
+
+
+
 
 		/// <summary>
 		/// 监听 socket 接收到新连接
@@ -222,6 +268,8 @@ namespace SocketServer
 		{
 			if ( e.SocketError == SocketError.Success )
 			{
+				//
+				this.semaphore.WaitOne();
 				var receiveArgs = argsPool.Pop();
 
 				if ( !e.AcceptSocket.ReceiveAsync( receiveArgs ) )
@@ -254,8 +302,10 @@ namespace SocketServer
 				switch ( e.LastOperation )
 				{
 					case SocketAsyncOperation.Receive:
+						ProcessReceive( e );
 						break;
 					case SocketAsyncOperation.Send:
+						ProcessSend( e );
 						break;
 					default:
 						break;
@@ -265,6 +315,15 @@ namespace SocketServer
 			{
 				OnSocketConnectionError( e.AcceptSocket, e.SocketError );
 			}
+		}
+
+
+		private void ProcessReceive( SocketAsyncEventArgs e )
+		{
+		}
+
+		private void ProcessSend( SocketAsyncEventArgs e )
+		{
 		}
 
 
@@ -279,6 +338,19 @@ namespace SocketServer
 			if ( this.ErrorEvent != null )
 			{
 				this.ErrorEvent( sender, e );
+			}
+		}
+
+		/// <summary>
+		/// 引发 ServerStateChange 事件
+		/// </summary>
+		/// <param name="sender"></param>
+		/// <param name="e"></param>
+		protected void OnServerStateChange( object sender, bool e )
+		{
+			if ( ServerStateChangeEvent != null )
+			{
+				ServerStateChangeEvent( sender, e );
 			}
 		}
 

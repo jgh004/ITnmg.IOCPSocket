@@ -130,6 +130,7 @@
 			this.tb_ConnectionCount.Name = "tb_ConnectionCount";
 			this.tb_ConnectionCount.Size = new System.Drawing.Size(128, 27);
 			this.tb_ConnectionCount.TabIndex = 4;
+			this.tb_ConnectionCount.Text = "1000";
 			this.tb_ConnectionCount.KeyPress += new System.Windows.Forms.KeyPressEventHandler(this.tb_Port_KeyPress);
 			// 
 			// label2
@@ -148,6 +149,7 @@
 			this.tb_Port.Name = "tb_Port";
 			this.tb_Port.Size = new System.Drawing.Size(82, 27);
 			this.tb_Port.TabIndex = 2;
+			this.tb_Port.Text = "9000";
 			this.tb_Port.KeyPress += new System.Windows.Forms.KeyPressEventHandler(this.tb_Port_KeyPress);
 			// 
 			// label1
@@ -166,6 +168,7 @@
 			this.tb_IP.Name = "tb_IP";
 			this.tb_IP.Size = new System.Drawing.Size(213, 27);
 			this.tb_IP.TabIndex = 0;
+			this.tb_IP.Text = "127.0.0.1";
 			// 
 			// panel2
 			// 

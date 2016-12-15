@@ -33,6 +33,7 @@ namespace SocketServer
 		/// </summary>
 		private int singleMaxBufferSize;
 
+
 		/// <summary>
 		/// 获取池中 SocketAsyncEventArgs 的数量
 		/// </summary>

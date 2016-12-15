@@ -25,19 +25,92 @@ namespace SocketServer.WinForm
 		private void F_Main_Load( object sender, EventArgs e )
 		{
 			sync = SynchronizationContext.Current;
+			this.cob_FirsIPType.SelectedIndex = 0;
 			this.server = new SocketServerManager();
-
+			this.server.ErrorEvent += Server_ErrorEvent;
+			this.server.ServerStateChangeEvent += Server_ServerStateChangeEvent;
 		}
 
-		private void button1_Click( object sender, EventArgs e )
+		private void bt_Start_Click( object sender, EventArgs e )
 		{
-			server.Init( "localhost", 9000, 100, 32 * 1024 );
-			server.StartListen().ContinueWith( f =>
+			try
 			{
-				if ( f.IsFaulted )
+				SetBtns( true );
+				string ip = this.tb_DomainOrIP.Text.Trim();
+				int port = Convert.ToInt32( this.tb_Port.Text.Trim() );
+				int maxConn = Convert.ToInt32( this.tb_MaxConnection.Text.Trim() );
+				bool firstIPType = this.cob_FirsIPType.SelectedIndex == 0;
+
+				server.Init( ip, port, maxConn, 16 * 1024, firstIPType );
+				server.StartListen().ContinueWith( f =>
 				{
-				}
-			} );
+					if ( f.IsCompleted )
+					{
+						this.AsyncPost( k =>
+						{
+							this.tb_DomainOrIP.Text = k == null ? "" : k.Address.ToString();
+							SetBtns( true );
+						}, f.Result );
+					}
+					else
+					{
+						SetBtns( false );
+					}
+				} );
+			}
+			catch ( Exception ex )
+			{
+				SetBtns( true );
+			}
+		}
+
+		private void bt_Stop_Click( object sender, EventArgs e )
+		{
+			try
+			{
+				SetBtns( false );
+				server.Close();
+			}
+			catch ( Exception ex )
+			{
+				SetBtns( true );
+			}
+		}
+
+		private void Server_ErrorEvent( object sender, Exception e )
+		{
+			ShowMessageBox( e.Message );
+		}
+
+		private void Server_ServerStateChangeEvent( object sender, bool e )
+		{
+			this.SetBtns( e );
+		}
+
+
+		private void SetBtns( bool start )
+		{
+			this.bt_Start.Enabled = !start;
+			this.bt_Stop.Enabled = start;
+		}
+
+		private void ShowMessageBox( string msg )
+		{
+			this.AsyncPost( f =>
+			{
+				MessageBox.Show( msg );
+			}, msg );
+		}
+		
+		private void AsyncPost<T>( Action<T> method, T state )
+		{
+			if ( this.sync != null )
+			{
+				this.sync.Post( f =>
+				{
+					method( (T)f );
+				}, state );
+			}
 		}
 	}
 }
