@@ -75,6 +75,7 @@
 			this.tb_DomainOrIP.Name = "tb_DomainOrIP";
 			this.tb_DomainOrIP.Size = new System.Drawing.Size(119, 27);
 			this.tb_DomainOrIP.TabIndex = 1;
+			this.tb_DomainOrIP.Text = "localhost";
 			// 
 			// label2
 			// 

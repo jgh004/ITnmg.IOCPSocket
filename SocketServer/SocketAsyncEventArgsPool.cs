@@ -52,13 +52,13 @@ namespace SocketServer
 		/// </summary>
 		/// <param name="capacity">初始状态容量大小</param>
 		/// <param name="completed">SocketAsyncEventArgs.Completed 事件执行的方法</param>
-		/// <param name="singleMaxBufferSize">SocketAsyncEventArgs.Buffer 的最大 Length, 默认为32K</param>
-		public SocketAsyncEventArgsPool( int capacity, EventHandler<SocketAsyncEventArgs> completed, int singleMaxBufferSize = 32 * 1024 )
+		/// <param name="singleBufferMaxSize">SocketAsyncEventArgs.Buffer 的最大 Length, 默认为32K</param>
+		public SocketAsyncEventArgsPool( int capacity, EventHandler<SocketAsyncEventArgs> completed, int singleBufferMaxSize = 32 * 1024 )
 		{
 			this.completed = completed;
-			this.singleMaxBufferSize = singleMaxBufferSize;
+			this.singleMaxBufferSize = singleBufferMaxSize;
 			//缓存池大小与SocketAsyncEventArgs池大小相同,因为每个SocketAsyncEventArgs只用一个缓存
-			bufferManager = BufferManager.CreateBufferManager( capacity, singleMaxBufferSize );
+			bufferManager = BufferManager.CreateBufferManager( long.MaxValue, singleBufferMaxSize );
 			pool = new Stack<SocketAsyncEventArgs>( capacity );
 
 			for ( int i = 0; i < capacity; i++ )

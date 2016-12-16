@@ -45,9 +45,14 @@ namespace SocketServer
 		private int maxConnCount;
 
 		/// <summary>
+		/// 启动时初始化多少个连接的资源
+		/// </summary>
+		private int initConnectionResourceCount;
+
+		/// <summary>
 		/// 一次读写socket的最大缓存字节数
 		/// </summary>
-		private int maxBufferSize;
+		private int singleBufferMaxSize;
 
 		/// <summary>
 		/// 发送超时时间, 以毫秒为单位.
@@ -117,25 +122,29 @@ namespace SocketServer
 
 
 
+		/// <summary>
+		/// 创建服务端实例
+		/// </summary>
 		public SocketServerManager()
 		{
 		}
 
 
 
-
+		
 		/// <summary>
 		/// 初始化服务端
 		/// </summary>
 		/// <param name="domainOrIP">要监听的域名或IP</param>
 		/// <param name="port">端口</param>
 		/// <param name="maxConnectionCount">允许的最大连接数</param>
-		/// <param name="maxBufferSize">socket 读写缓存大小</param>
+		/// <param name="initConnectionResourceCount">启动时初始化多少个连接的资源</param>
+		/// <param name="singleBufferMaxSize">每个 socket 读写缓存最大字节数</param>
+		/// <param name="sendTimeOut">socket 发送超时时长, 以毫秒为单位</param>
+		/// <param name="receiveTimeOut">socket 接收超时时长, 以毫秒为单位</param>
 		/// <param name="firstIPv4">如果用域名初始化,可能返回多个ipv4和ipv6地址,指定是否首选ipv4地址.</param>
-		/// <param name="sendTimeOut"></param>
-		/// <param name="receiveTimeOut"></param>
-		public void Init( string domainOrIP, int port, int maxConnectionCount
-			, int maxBufferSize = 32 * 1024, bool firstIPv4 = true, int sendTimeOut = 6000, int receiveTimeOut = 6000 )
+		public void Init( string domainOrIP, int port, int maxConnectionCount, int initConnectionResourceCount
+			, int singleBufferMaxSize = 16 * 1024, int sendTimeOut = 10000, int receiveTimeOut = 10000, bool firstIPv4 = true )
 		{
 			if ( domainOrIP != null )
 			{
@@ -146,12 +155,8 @@ namespace SocketServer
 			this.sendTimeOut = sendTimeOut;
 			this.receiveTimeOut = receiveTimeOut;
 			this.maxConnCount = maxConnectionCount;
-			this.maxBufferSize = maxBufferSize;
-			this.semaphore = new Semaphore( this.maxConnCount, this.maxConnCount );
-			this.waitConnectionList = new Dictionary<int, Socket>( this.maxConnCount );
-			this.connectedList = new Dictionary<int, Socket>( this.maxConnCount );
-			//读写分离, 每个socket连接需要2个SocketAsyncEventArgs.
-			this.argsPool = new SocketServer.SocketAsyncEventArgsPool( maxConnectionCount * 2, ArgsSendAndReceive_Completed, 1 );
+			this.initConnectionResourceCount = initConnectionResourceCount;
+			this.singleBufferMaxSize = singleBufferMaxSize;
 		}
 
 		/// <summary>
@@ -166,31 +171,7 @@ namespace SocketServer
 			{
 				if ( this.socket == null )
 				{
-					if ( !string.IsNullOrWhiteSpace( this.domainOrIP ) )
-					{
-						IPAddress ipAddr = null;
-
-						if ( !IPAddress.TryParse( domainOrIP, out ipAddr ) )
-						{
-							var addrs = await Dns.GetHostAddressesAsync( this.domainOrIP );
-
-							if ( addrs == null || addrs.Length == 0 )
-							{
-								throw new Exception( "域名或ip地址不正确,未能解析." );
-							}
-
-							ipAddr = addrs.FirstOrDefault( k => k.AddressFamily == (firstIPv4 ? AddressFamily.InterNetwork : AddressFamily.InterNetworkV6) );
-							ipAddr = ipAddr ?? addrs.First();
-						}
-
-						result = new IPEndPoint( ipAddr, this.port );
-					}
-					else
-					{
-						result = new IPEndPoint( firstIPv4 ? IPAddress.Any : IPAddress.IPv6Any, port );
-					}
-
-					this.socket = new Socket( result.AddressFamily, SocketType.Stream, ProtocolType.Tcp );
+					result = await this.ResetOrEmptyResourse();
 					this.socket.Bind( result );
 					this.socket.Listen( maxConnCount );
 
@@ -207,7 +188,7 @@ namespace SocketServer
 				else
 				{
 					result = this.socket.LocalEndPoint as IPEndPoint;
-					OnError( this, new Exception( "服务端已经在运行中" ) );
+					OnError( this, new Exception( "服务端已在运行" ) );
 				}
 			}
 			catch ( Exception ex )
@@ -222,7 +203,7 @@ namespace SocketServer
 		/// <summary>
 		/// 关闭监听
 		/// </summary>
-		public void Close()
+		public async Task Close()
 		{
 			if ( this.socket != null )
 			{
@@ -232,7 +213,7 @@ namespace SocketServer
 					{
 						this.socket.Shutdown( SocketShutdown.Both );
 					}
-					catch
+					catch ( Exception ex )
 					{
 					}
 
@@ -245,12 +226,7 @@ namespace SocketServer
 				}
 				finally
 				{
-					if ( this.socket != null )
-					{
-						this.socket.Close();
-						this.socket = null;
-					}
-					this.semaphore = new Semaphore( this.maxConnCount, this.maxConnCount );
+					await this.ResetOrEmptyResourse( false );
 					OnServerStateChange( this, false );
 				}
 			}
@@ -258,7 +234,70 @@ namespace SocketServer
 
 
 
+		/// <summary>
+		/// 分析ip或域名,返回 IPEndPoint 实例
+		/// </summary>
+		/// <returns></returns>
+		private async Task<IPEndPoint> GetIPEndPoint()
+		{
+			IPEndPoint result = null;
 
+			if ( !string.IsNullOrWhiteSpace( this.domainOrIP ) )
+			{
+				IPAddress ipAddr = null;
+
+				if ( !IPAddress.TryParse( domainOrIP, out ipAddr ) )
+				{
+					var addrs = await Dns.GetHostAddressesAsync( this.domainOrIP );
+
+					if ( addrs == null || addrs.Length == 0 )
+					{
+						throw new Exception( "域名或ip地址不正确,未能解析." );
+					}
+
+					ipAddr = addrs.FirstOrDefault( k => k.AddressFamily == (firstIPv4 ? AddressFamily.InterNetwork : AddressFamily.InterNetworkV6) );
+					ipAddr = ipAddr ?? addrs.First();
+				}
+
+				result = new IPEndPoint( ipAddr, this.port );
+			}
+			else
+			{
+				result = new IPEndPoint( firstIPv4 ? IPAddress.Any : IPAddress.IPv6Any, port );
+			}
+
+			return result;
+		}
+
+		/// <summary>
+		/// 重置资源
+		/// </summary>
+		private async Task<IPEndPoint> ResetOrEmptyResourse( bool reset = true )
+		{
+			IPEndPoint result = null;
+
+			if ( reset )
+			{
+				result = await GetIPEndPoint();
+				this.socket = new Socket( result.AddressFamily, SocketType.Stream, ProtocolType.Tcp );
+				this.semaphore = new Semaphore( this.maxConnCount, this.maxConnCount );
+				this.waitConnectionList = new Dictionary<int, Socket>( this.maxConnCount );
+				this.connectedList = new Dictionary<int, Socket>( this.maxConnCount );
+				//读写分离, 每个socket连接需要2个SocketAsyncEventArgs.
+				this.argsPool = new SocketAsyncEventArgsPool( this.initConnectionResourceCount * 2, ArgsSendAndReceive_Completed, this.singleBufferMaxSize );
+			}
+			else
+			{
+				this.socket = null;
+				this.semaphore = null;
+				this.waitConnectionList = null;
+				this.connectedList = null;
+				this.argsPool = null;
+			}
+
+			return result;
+		}
+		
 		/// <summary>
 		/// 监听 socket 接收到新连接
 		/// </summary>
@@ -268,7 +307,6 @@ namespace SocketServer
 		{
 			if ( e.SocketError == SocketError.Success )
 			{
-				//
 				this.semaphore.WaitOne();
 				var receiveArgs = argsPool.Pop();
 
@@ -287,6 +325,11 @@ namespace SocketServer
 			else
 			{
 				OnSocketConnectionError( e.AcceptSocket, e.SocketError );
+
+				if ( e.AcceptSocket != null )
+				{
+					e.AcceptSocket.Close( this.sendTimeOut );
+				}
 			}
 		}
 

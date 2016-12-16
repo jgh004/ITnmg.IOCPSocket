@@ -125,12 +125,12 @@
 			// 
 			// tb_ConnectionCount
 			// 
-			this.tb_ConnectionCount.Location = new System.Drawing.Point(635, 11);
+			this.tb_ConnectionCount.Location = new System.Drawing.Point(618, 11);
 			this.tb_ConnectionCount.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			this.tb_ConnectionCount.Name = "tb_ConnectionCount";
 			this.tb_ConnectionCount.Size = new System.Drawing.Size(128, 27);
 			this.tb_ConnectionCount.TabIndex = 4;
-			this.tb_ConnectionCount.Text = "1000";
+			this.tb_ConnectionCount.Text = "1";
 			this.tb_ConnectionCount.KeyPress += new System.Windows.Forms.KeyPressEventHandler(this.tb_Port_KeyPress);
 			// 
 			// label2
@@ -144,7 +144,7 @@
 			// 
 			// tb_Port
 			// 
-			this.tb_Port.Location = new System.Drawing.Point(355, 11);
+			this.tb_Port.Location = new System.Drawing.Point(346, 11);
 			this.tb_Port.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			this.tb_Port.Name = "tb_Port";
 			this.tb_Port.Size = new System.Drawing.Size(82, 27);
@@ -163,7 +163,7 @@
 			// 
 			// tb_IP
 			// 
-			this.tb_IP.Location = new System.Drawing.Point(54, 11);
+			this.tb_IP.Location = new System.Drawing.Point(44, 11);
 			this.tb_IP.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			this.tb_IP.Name = "tb_IP";
 			this.tb_IP.Size = new System.Drawing.Size(213, 27);

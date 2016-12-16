@@ -41,7 +41,7 @@ namespace SocketServer.WinForm
 				int maxConn = Convert.ToInt32( this.tb_MaxConnection.Text.Trim() );
 				bool firstIPType = this.cob_FirsIPType.SelectedIndex == 0;
 
-				server.Init( ip, port, maxConn, 16 * 1024, firstIPType );
+				server.Init( ip, port, maxConn, maxConn / 2, 16 * 1024, 10000, 10000, firstIPType );
 				server.StartListen().ContinueWith( f =>
 				{
 					if ( f.IsCompleted )
@@ -60,6 +60,11 @@ namespace SocketServer.WinForm
 			}
 			catch ( Exception ex )
 			{
+				if ( server != null )
+				{
+					server.Close();
+				}
+
 				SetBtns( true );
 			}
 		}
@@ -73,7 +78,7 @@ namespace SocketServer.WinForm
 			}
 			catch ( Exception ex )
 			{
-				SetBtns( true );
+				SetBtns( false );
 			}
 		}
 
