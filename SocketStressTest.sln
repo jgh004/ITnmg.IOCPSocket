@@ -13,6 +13,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SocketStressTest.Interface"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SocketServer", "SocketServer\SocketServer.csproj", "{2D636F35-8EC9-4002-8AF6-71CBE237C359}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SocketServer.WPF", "SocketServer.WPF\SocketServer.WPF.csproj", "{88D46DA5-1E71-4EBF-8DC8-462C10C02183}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -39,6 +41,10 @@ Global
 		{2D636F35-8EC9-4002-8AF6-71CBE237C359}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2D636F35-8EC9-4002-8AF6-71CBE237C359}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2D636F35-8EC9-4002-8AF6-71CBE237C359}.Release|Any CPU.Build.0 = Release|Any CPU
+		{88D46DA5-1E71-4EBF-8DC8-462C10C02183}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{88D46DA5-1E71-4EBF-8DC8-462C10C02183}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{88D46DA5-1E71-4EBF-8DC8-462C10C02183}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{88D46DA5-1E71-4EBF-8DC8-462C10C02183}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

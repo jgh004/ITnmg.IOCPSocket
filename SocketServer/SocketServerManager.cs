@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
@@ -17,27 +18,12 @@ namespace SocketServer
 		/// <summary>
 		/// SocketAsyncEventArgs 池
 		/// </summary>
-		private SocketAsyncEventArgsPool argsPool;
+		private SocketAsyncEventArgsPool saePool;
 
 		/// <summary>
 		/// 监听用的 socket
 		/// </summary>
-		private Socket socket;
-
-		/// <summary>
-		/// 服务端ip
-		/// </summary>
-		private string domainOrIP;
-
-		/// <summary>
-		/// 当使用域名连接时, 如果返回多个ip, 是否首选ipv4, 否则用ipv6.
-		/// </summary>
-		private bool firstIPv4;
-
-		/// <summary>
-		/// 服务端端口
-		/// </summary>
-		private int port;
+		private Socket listenSocket;
 
 		/// <summary>
 		/// 允许的最大连接数量
@@ -68,16 +54,11 @@ namespace SocketServer
 		/// 信号量,初始设为 maxConnCount
 		/// </summary>
 		private Semaphore semaphore;
-
-		/// <summary>
-		/// 待连接客户端集合
-		/// </summary>
-		private Dictionary<int, Socket> waitConnectionList;
-
+		
 		/// <summary>
 		/// 已连接的集合
 		/// </summary>
-		private Dictionary<int, Socket> connectedList;
+		private ConcurrentDictionary<IntPtr, Socket> connectedList;
 
 
 		/// <summary>
@@ -91,10 +72,8 @@ namespace SocketServer
 		public event EventHandler<bool> ServerStateChangeEvent;
 
 		/// <summary>
-		/// Socket 连接发生的异常
+		/// Socket 连接数改变
 		/// </summary>
-		public event EventHandler<SocketError> SocketConnectionErrorEvent;
-
 		public event EventHandler<int> ConnectedCountChangeEvent;
 
 
@@ -131,69 +110,75 @@ namespace SocketServer
 
 
 
-		
+
 		/// <summary>
 		/// 初始化服务端
 		/// </summary>
-		/// <param name="domainOrIP">要监听的域名或IP</param>
-		/// <param name="port">端口</param>
 		/// <param name="maxConnectionCount">允许的最大连接数</param>
 		/// <param name="initConnectionResourceCount">启动时初始化多少个连接的资源</param>
 		/// <param name="singleBufferMaxSize">每个 socket 读写缓存最大字节数</param>
 		/// <param name="sendTimeOut">socket 发送超时时长, 以毫秒为单位</param>
 		/// <param name="receiveTimeOut">socket 接收超时时长, 以毫秒为单位</param>
-		/// <param name="firstIPv4">如果用域名初始化,可能返回多个ipv4和ipv6地址,指定是否首选ipv4地址.</param>
-		public void Init( string domainOrIP, int port, int maxConnectionCount, int initConnectionResourceCount
-			, int singleBufferMaxSize = 16 * 1024, int sendTimeOut = 10000, int receiveTimeOut = 10000, bool firstIPv4 = true )
+		public async Task InitAsync( int maxConnectionCount, int initConnectionResourceCount, int singleBufferMaxSize = 16 * 1024
+			, int sendTimeOut = 10000, int receiveTimeOut = 10000)
 		{
-			if ( domainOrIP != null )
-			{
-				this.domainOrIP = domainOrIP.Trim();
-			}
-			this.firstIPv4 = firstIPv4;
-			this.port = port;
 			this.sendTimeOut = sendTimeOut;
 			this.receiveTimeOut = receiveTimeOut;
 			this.maxConnCount = maxConnectionCount;
 			this.initConnectionResourceCount = initConnectionResourceCount;
 			this.singleBufferMaxSize = singleBufferMaxSize;
+
+			await Task.Run( () =>
+			{
+				ResetResourses();
+			} );
 		}
 
 		/// <summary>
 		/// 开始监听连接
 		/// </summary>
+		/// <param name="domainOrIP">要监听的域名或IP</param>
+		/// <param name="port">端口</param>
+		/// <param name="preferredIPv4">如果用域名初始化,可能返回多个ipv4和ipv6地址,指定是否首选ipv4地址.</param>
 		/// <returns>返回实际监听的 EndPoint</returns>
-		public async Task<IPEndPoint> StartListen()
+		public async Task<IPEndPoint> StartListen( string domainOrIP, int port, bool preferredIPv4 = true )
 		{
 			IPEndPoint result = null;
 
 			try
 			{
-				if ( this.socket == null )
+				if ( this.listenSocket == null )
 				{
-					result = await this.ResetOrEmptyResourse();
-					this.socket.Bind( result );
-					this.socket.Listen( maxConnCount );
+					result = await GetIPEndPoint( domainOrIP, port, preferredIPv4 );
+					this.listenSocket = new Socket( result.AddressFamily, SocketType.Stream, ProtocolType.Tcp );
+					this.listenSocket.SendTimeout = this.sendTimeOut;
+					this.listenSocket.ReceiveTimeout = this.receiveTimeOut;
+					this.listenSocket.SendBufferSize = this.singleBufferMaxSize;
+					this.listenSocket.ReceiveBufferSize = this.singleBufferMaxSize;
+					this.listenSocket.Bind( result );
+					this.listenSocket.Listen( 100 );
 
 					SocketAsyncEventArgs args = new SocketAsyncEventArgs();
+					args.SetBuffer( new byte[this.singleBufferMaxSize], 0, this.singleBufferMaxSize );
+					args.DisconnectReuseSocket = true;
 					args.Completed += Args_Completed;
 
-					if ( !this.socket.AcceptAsync( args ) )
+					if ( !this.listenSocket.AcceptAsync( args ) )
 					{
-						Args_Completed( this.socket, args );
+						Args_Completed( this.listenSocket, args );
 					}
 
 					OnServerStateChange( this, true );
 				}
 				else
 				{
-					result = this.socket.LocalEndPoint as IPEndPoint;
+					result = this.listenSocket.LocalEndPoint as IPEndPoint;
 					OnError( this, new Exception( "服务端已在运行" ) );
 				}
 			}
 			catch ( Exception ex )
 			{
-				this.Close();
+				this.CloseAsync();
 				this.OnError( this, ex );
 			}
 
@@ -203,22 +188,23 @@ namespace SocketServer
 		/// <summary>
 		/// 关闭监听
 		/// </summary>
-		public async Task Close()
+		public async Task CloseAsync()
 		{
-			if ( this.socket != null )
+			if ( this.listenSocket != null )
 			{
 				try
 				{
+					await ClearResources();
+
 					try
 					{
-						this.socket.Shutdown( SocketShutdown.Both );
+						this.listenSocket.Shutdown( SocketShutdown.Both );
 					}
 					catch ( Exception ex )
 					{
 					}
-
-					this.socket.Close( sendTimeOut );
-					this.semaphore.Close();
+					
+					OnServerStateChange( this, false );
 				}
 				catch ( Exception ex )
 				{
@@ -226,78 +212,97 @@ namespace SocketServer
 				}
 				finally
 				{
-					await this.ResetOrEmptyResourse( false );
-					OnServerStateChange( this, false );
+					this.listenSocket.Close();
+					this.listenSocket = null;
 				}
 			}
 		}
 
 
+		/// <summary>
+		/// 清理已连接资源
+		/// </summary>
+		/// <returns></returns>
+		private async Task ClearResources()
+		{
+			await Task.Run( () =>
+			{
+				this.semaphore.Close();
+				this.semaphore.Dispose();
+				this.semaphore = new Semaphore( this.maxConnCount, this.maxConnCount );
+
+				if ( this.connectedList != null )
+				{
+					foreach ( var c in connectedList )
+					{
+						try
+						{
+							c.Value.Shutdown( SocketShutdown.Both );
+						}
+						catch ( Exception ex )
+						{
+						}
+
+						c.Value.Close();
+					}
+
+					this.connectedList.Clear();
+				}
+			} );
+		}
+		
+		/// <summary>
+		/// 重置资源
+		/// </summary>
+		private void ResetResourses()
+		{
+			this.semaphore = new Semaphore( this.maxConnCount, this.maxConnCount );
+
+			//设置初始线程数为cpu核数*2
+			this.connectedList = new ConcurrentDictionary<IntPtr, Socket>( Environment.ProcessorCount * 2, this.maxConnCount );
+			//读写分离, 每个socket连接需要2个SocketAsyncEventArgs.
+			saePool = new SocketAsyncEventArgsPool( this.initConnectionResourceCount * 2, ArgsSendAndReceive_Completed, this.singleBufferMaxSize );
+		}
 
 		/// <summary>
 		/// 分析ip或域名,返回 IPEndPoint 实例
 		/// </summary>
-		/// <returns></returns>
-		private async Task<IPEndPoint> GetIPEndPoint()
+		/// <param name="domainOrIP">要监听的域名或IP</param>
+		/// <param name="port">端口</param>
+		/// <param name="preferredIPv4">如果用域名初始化,可能返回多个ipv4和ipv6地址,指定是否首选ipv4地址.</param>
+		/// <returns>返回 IPEndPoint 实例</returns>
+		private async Task<IPEndPoint> GetIPEndPoint( string domainOrIP, int port, bool preferredIPv4 = true )
 		{
 			IPEndPoint result = null;
 
-			if ( !string.IsNullOrWhiteSpace( this.domainOrIP ) )
+			if ( !string.IsNullOrWhiteSpace( domainOrIP ) )
 			{
+				string ip = domainOrIP.Trim();
 				IPAddress ipAddr = null;
 
-				if ( !IPAddress.TryParse( domainOrIP, out ipAddr ) )
+				if ( !IPAddress.TryParse( ip, out ipAddr ) )
 				{
-					var addrs = await Dns.GetHostAddressesAsync( this.domainOrIP );
+					var addrs = await Dns.GetHostAddressesAsync( ip );
 
 					if ( addrs == null || addrs.Length == 0 )
 					{
 						throw new Exception( "域名或ip地址不正确,未能解析." );
 					}
 
-					ipAddr = addrs.FirstOrDefault( k => k.AddressFamily == (firstIPv4 ? AddressFamily.InterNetwork : AddressFamily.InterNetworkV6) );
+					ipAddr = addrs.FirstOrDefault( k => k.AddressFamily == (preferredIPv4 ? AddressFamily.InterNetwork : AddressFamily.InterNetworkV6) );
 					ipAddr = ipAddr ?? addrs.First();
 				}
 
-				result = new IPEndPoint( ipAddr, this.port );
+				result = new IPEndPoint( ipAddr, port );
 			}
 			else
 			{
-				result = new IPEndPoint( firstIPv4 ? IPAddress.Any : IPAddress.IPv6Any, port );
+				result = new IPEndPoint( preferredIPv4 ? IPAddress.Any : IPAddress.IPv6Any, port );
 			}
 
 			return result;
 		}
 
-		/// <summary>
-		/// 重置资源
-		/// </summary>
-		private async Task<IPEndPoint> ResetOrEmptyResourse( bool reset = true )
-		{
-			IPEndPoint result = null;
-
-			if ( reset )
-			{
-				result = await GetIPEndPoint();
-				this.socket = new Socket( result.AddressFamily, SocketType.Stream, ProtocolType.Tcp );
-				this.semaphore = new Semaphore( this.maxConnCount, this.maxConnCount );
-				this.waitConnectionList = new Dictionary<int, Socket>( this.maxConnCount );
-				this.connectedList = new Dictionary<int, Socket>( this.maxConnCount );
-				//读写分离, 每个socket连接需要2个SocketAsyncEventArgs.
-				this.argsPool = new SocketAsyncEventArgsPool( this.initConnectionResourceCount * 2, ArgsSendAndReceive_Completed, this.singleBufferMaxSize );
-			}
-			else
-			{
-				this.socket = null;
-				this.semaphore = null;
-				this.waitConnectionList = null;
-				this.connectedList = null;
-				this.argsPool = null;
-			}
-
-			return result;
-		}
-		
 		/// <summary>
 		/// 监听 socket 接收到新连接
 		/// </summary>
@@ -305,31 +310,68 @@ namespace SocketServer
 		/// <param name="e"></param>
 		private void Args_Completed( object sender, SocketAsyncEventArgs e )
 		{
-			if ( e.SocketError == SocketError.Success )
+			try
 			{
-				this.semaphore.WaitOne();
-				var receiveArgs = argsPool.Pop();
-
-				if ( !e.AcceptSocket.ReceiveAsync( receiveArgs ) )
+				if ( e.SocketError == SocketError.Success )
 				{
-					ArgsSendAndReceive_Completed( e.AcceptSocket, receiveArgs );
+					this.semaphore.WaitOne();
+
+					//var s = new SocketEntity();
+					//s.SetSocket( e.AcceptSocket );
+
+					//var receiveArgs = SocketAsyncEventArgsPool.Pop();
+
+					//if ( !e.AcceptSocket.ReceiveAsync( receiveArgs ) )
+					//{
+					//	ArgsSendAndReceive_Completed( receiveArgs.AcceptSocket, receiveArgs );
+					//}
+
+					//var sendArgs = SocketAsyncEventArgsPool.Pop();
+
+					//if ( !e.AcceptSocket.SendAsync( sendArgs ) )
+					//{
+					//	ArgsSendAndReceive_Completed( sendArgs.AcceptSocket, sendArgs );
+					//}
+
+					if ( connectedList.TryAdd( e.AcceptSocket.Handle, e.AcceptSocket ) )
+					{
+						//引发 socket 状态变更事件
+						OnConnectedCountChange( this, this.connectedList.Count );
+					}
+					else
+					{
+						OnError( this, new Exception( "Socket 重复连接" ) );
+					}
+
+					//if ( this.socket != null && !this.socket.AcceptAsync( e ) )
+					//{
+					//	Args_Completed( this.socket, e );
+					//}
 				}
-
-				var sendArgs = argsPool.Pop();
-
-				if ( !e.AcceptSocket.SendAsync( sendArgs ) )
+				else
 				{
-					ArgsSendAndReceive_Completed( e.AcceptSocket, sendArgs );
+					if ( connectedList != null )
+					{
+						OnConnectedCountChange( this, this.connectedList.Count );
+					}
+
+					if ( e.AcceptSocket != null )
+					{
+						if ( connectedList != null )
+						{
+							Socket s = null;
+							connectedList.TryRemove( e.AcceptSocket.Handle, out s );
+							s = null;
+						}
+
+						e.AcceptSocket.Close( this.sendTimeOut );
+					}
 				}
 			}
-			else
+			catch ( Exception ex )
 			{
-				OnSocketConnectionError( e.AcceptSocket, e.SocketError );
-
-				if ( e.AcceptSocket != null )
-				{
-					e.AcceptSocket.Close( this.sendTimeOut );
-				}
+				e.AcceptSocket = null;
+				OnError( this, ex );
 			}
 		}
 
@@ -340,37 +382,10 @@ namespace SocketServer
 		/// <param name="e"></param>
 		private void ArgsSendAndReceive_Completed( object sender, SocketAsyncEventArgs e )
 		{
-			if ( e.SocketError == SocketError.Success )
-			{
-				switch ( e.LastOperation )
-				{
-					case SocketAsyncOperation.Receive:
-						ProcessReceive( e );
-						break;
-					case SocketAsyncOperation.Send:
-						ProcessSend( e );
-						break;
-					default:
-						break;
-				}
-			}
-			else
-			{
-				OnSocketConnectionError( e.AcceptSocket, e.SocketError );
-			}
 		}
 
 
-		private void ProcessReceive( SocketAsyncEventArgs e )
-		{
-		}
-
-		private void ProcessSend( SocketAsyncEventArgs e )
-		{
-		}
-
-
-
+		
 		/// <summary>
 		/// 引发 Error 事件
 		/// </summary>
@@ -398,15 +413,15 @@ namespace SocketServer
 		}
 
 		/// <summary>
-		/// 引发 SocketConnectionError 事件
+		/// 引发 ConnectedCountChangeEvent 事件
 		/// </summary>
 		/// <param name="sender"></param>
 		/// <param name="e"></param>
-		protected void OnSocketConnectionError( object sender, SocketError e )
+		protected void OnConnectedCountChange( object sender, int e )
 		{
-			if ( this.SocketConnectionErrorEvent != null )
+			if ( this.ConnectedCountChangeEvent != null )
 			{
-				this.SocketConnectionErrorEvent( sender, e );
+				this.ConnectedCountChangeEvent( sender, e );
 			}
 		}
 	}

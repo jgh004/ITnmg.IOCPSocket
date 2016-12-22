@@ -38,6 +38,8 @@
 			this.bt_Stop = new System.Windows.Forms.Button();
 			this.label4 = new System.Windows.Forms.Label();
 			this.cob_FirsIPType = new System.Windows.Forms.ComboBox();
+			this.textBox1 = new System.Windows.Forms.TextBox();
+			this.bt_Init = new System.Windows.Forms.Button();
 			this.SuspendLayout();
 			// 
 			// tb_MaxConnection
@@ -51,7 +53,7 @@
 			// 
 			// bt_Start
 			// 
-			this.bt_Start.Location = new System.Drawing.Point(820, 21);
+			this.bt_Start.Location = new System.Drawing.Point(904, 21);
 			this.bt_Start.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			this.bt_Start.Name = "bt_Start";
 			this.bt_Start.Size = new System.Drawing.Size(84, 31);
@@ -105,7 +107,7 @@
 			// 
 			// bt_Stop
 			// 
-			this.bt_Stop.Location = new System.Drawing.Point(924, 21);
+			this.bt_Stop.Location = new System.Drawing.Point(1008, 21);
 			this.bt_Stop.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			this.bt_Stop.Name = "bt_Stop";
 			this.bt_Stop.Size = new System.Drawing.Size(84, 31);
@@ -135,11 +137,31 @@
 			this.cob_FirsIPType.Size = new System.Drawing.Size(56, 28);
 			this.cob_FirsIPType.TabIndex = 103;
 			// 
+			// textBox1
+			// 
+			this.textBox1.Location = new System.Drawing.Point(123, 130);
+			this.textBox1.Name = "textBox1";
+			this.textBox1.Size = new System.Drawing.Size(119, 27);
+			this.textBox1.TabIndex = 104;
+			// 
+			// bt_Init
+			// 
+			this.bt_Init.Location = new System.Drawing.Point(800, 21);
+			this.bt_Init.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
+			this.bt_Init.Name = "bt_Init";
+			this.bt_Init.Size = new System.Drawing.Size(84, 31);
+			this.bt_Init.TabIndex = 105;
+			this.bt_Init.Text = "Init";
+			this.bt_Init.UseVisualStyleBackColor = true;
+			this.bt_Init.Click += new System.EventHandler(this.bt_Init_Click);
+			// 
 			// F_Main
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(9F, 20F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-			this.ClientSize = new System.Drawing.Size(1045, 627);
+			this.ClientSize = new System.Drawing.Size(1138, 627);
+			this.Controls.Add(this.bt_Init);
+			this.Controls.Add(this.textBox1);
 			this.Controls.Add(this.cob_FirsIPType);
 			this.Controls.Add(this.label4);
 			this.Controls.Add(this.bt_Stop);
@@ -173,6 +195,8 @@
 		private System.Windows.Forms.Button bt_Stop;
 		private System.Windows.Forms.Label label4;
 		private System.Windows.Forms.ComboBox cob_FirsIPType;
+		private System.Windows.Forms.TextBox textBox1;
+		private System.Windows.Forms.Button bt_Init;
 	}
 }
 

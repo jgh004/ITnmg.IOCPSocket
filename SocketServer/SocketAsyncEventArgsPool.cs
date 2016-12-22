@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Sockets;
@@ -14,19 +15,19 @@ namespace SocketServer
 	public class SocketAsyncEventArgsPool
 	{
 		/// <summary>
-		/// 数据缓存池
-		/// </summary>
-		private BufferManager bufferManager;
-
-		/// <summary>
 		/// SocketAsyncEventArgs 池
 		/// </summary>
-		private Stack<SocketAsyncEventArgs> pool;
+		private ConcurrentStack<SocketAsyncEventArgs> pool;
+
+		/// <summary>
+		/// 缓存管理
+		/// </summary>
+		private ConcurrentBufferManager bufferManager;
 
 		/// <summary>
 		/// SocketAsyncEventArgs 完成时的方法
 		/// </summary>
-		private EventHandler<SocketAsyncEventArgs> completed;
+		private EventHandler<SocketAsyncEventArgs> socketAsyncCompleted;
 
 		/// <summary>
 		/// SocketAsyncEventArgs 缓存最大字节数
@@ -44,7 +45,7 @@ namespace SocketServer
 				return pool.Count;
 			}
 		}
-		
+
 
 
 		/// <summary>
@@ -52,18 +53,24 @@ namespace SocketServer
 		/// </summary>
 		/// <param name="capacity">初始状态容量大小</param>
 		/// <param name="completed">SocketAsyncEventArgs.Completed 事件执行的方法</param>
-		/// <param name="singleBufferMaxSize">SocketAsyncEventArgs.Buffer 的最大 Length, 默认为32K</param>
-		public SocketAsyncEventArgsPool( int capacity, EventHandler<SocketAsyncEventArgs> completed, int singleBufferMaxSize = 32 * 1024 )
+		/// <param name="singleBufferMaxSize">SocketAsyncEventArgs.Buffer 的最大 Length, 默认为8K</param>
+		public SocketAsyncEventArgsPool( int capacity, EventHandler<SocketAsyncEventArgs> completed, int singleBufferMaxSize = 8 * 1024 )
 		{
-			this.completed = completed;
-			this.singleMaxBufferSize = singleBufferMaxSize;
+			socketAsyncCompleted = completed;
+			singleMaxBufferSize = singleBufferMaxSize;
 			//缓存池大小与SocketAsyncEventArgs池大小相同,因为每个SocketAsyncEventArgs只用一个缓存
-			bufferManager = BufferManager.CreateBufferManager( long.MaxValue, singleBufferMaxSize );
-			pool = new Stack<SocketAsyncEventArgs>( capacity );
+			bufferManager = new ConcurrentBufferManager( long.MaxValue, singleBufferMaxSize );
+			pool = new ConcurrentStack<SocketAsyncEventArgs>();
 
 			for ( int i = 0; i < capacity; i++ )
 			{
-				SocketAsyncEventArgs arg = this.CreateNew();
+				SocketAsyncEventArgs arg = TryCreateNew();
+
+				if ( arg == null )
+				{
+					break;
+				}
+
 				pool.Push( arg );
 			}
 		}
@@ -77,7 +84,7 @@ namespace SocketServer
 		{
 		}
 
-		
+
 
 		/// <summary>
 		/// 入栈
@@ -90,14 +97,11 @@ namespace SocketServer
 				throw new ArgumentNullException( "item" );
 			}
 
-			lock ( pool )
-			{
-				item.AcceptSocket = null;
-				item.RemoteEndPoint = null;
-				item.UserToken = null;
-				item.DisconnectReuseSocket = true;
-				pool.Push( item );
-			}
+			item.AcceptSocket = null;
+			item.RemoteEndPoint = null;
+			item.UserToken = null;
+			item.DisconnectReuseSocket = true;
+			pool.Push( item );
 		}
 
 		/// <summary>
@@ -106,21 +110,33 @@ namespace SocketServer
 		/// <returns>SocketAsyncEventArgs 实例</returns>
 		public SocketAsyncEventArgs Pop()
 		{
-			SocketAsyncEventArgs result = null;
+			SocketAsyncEventArgs result;
 
-			lock ( pool )
+			if ( !pool.TryPop( out result ) )
 			{
-				if ( pool.Count == 0 )
+				lock ( pool )
 				{
-					result = CreateNew();
-				}
-				else
-				{
-					result = pool.Pop();
+					result = TryCreateNew();
 				}
 			}
 
 			return result;
+		}
+
+		/// <summary>
+		/// 清空堆栈
+		/// </summary>
+		public void Clear()
+		{
+			if ( pool != null )
+			{
+				pool.Clear();
+			}
+
+			if ( bufferManager != null )
+			{
+				bufferManager.Clear();
+			}
 		}
 
 
@@ -129,16 +145,21 @@ namespace SocketServer
 		/// 创建新 SocketAsyncEventArgs
 		/// </summary>
 		/// <returns></returns>
-		private SocketAsyncEventArgs CreateNew()
+		private SocketAsyncEventArgs TryCreateNew()
 		{
-			SocketAsyncEventArgs item = new SocketAsyncEventArgs();
-			item.DisconnectReuseSocket = true;
+			SocketAsyncEventArgs item = null;
 			var buffer = bufferManager.TakeBuffer( singleMaxBufferSize );
-			item.SetBuffer( buffer, 0, buffer.Length );
 
-			if ( completed != null )
+			if ( buffer != null )
 			{
-				item.Completed += completed;
+				item = new SocketAsyncEventArgs();
+				item.DisconnectReuseSocket = true;
+				item.SetBuffer( buffer, 0, buffer.Length );
+
+				if ( socketAsyncCompleted != null )
+				{
+					item.Completed += socketAsyncCompleted;
+				}
 			}
 
 			return item;

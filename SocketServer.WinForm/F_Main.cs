@@ -16,6 +16,7 @@ namespace SocketServer.WinForm
 	{
 		SynchronizationContext sync = null;
 		SocketServerManager server = null;
+		bool isInit = true;
 
 		public F_Main()
 		{
@@ -29,20 +30,47 @@ namespace SocketServer.WinForm
 			this.server = new SocketServerManager();
 			this.server.ErrorEvent += Server_ErrorEvent;
 			this.server.ServerStateChangeEvent += Server_ServerStateChangeEvent;
+			this.server.ConnectedCountChangeEvent += Server_ConnectedCountChangeEvent;
+		}
+
+		private void bt_Init_Click( object sender, EventArgs e )
+		{
+			this.bt_Init.Enabled = false;
+			this.server.InitAsync( Convert.ToInt32( this.tb_MaxConnection.Text.Trim() ), 8 * 1024 ).ContinueWith( f =>
+			{
+				if ( f.Exception == null )
+				{
+					this.isInit = false;
+				}
+				else
+				{
+					this.ShowMessageBox( "初始化失败: " + f.Exception.GetBaseException().Message );
+				}
+
+				this.AsyncPost( k =>
+				{
+					this.bt_Init.Enabled = true;
+				}, "" );
+			} );
 		}
 
 		private void bt_Start_Click( object sender, EventArgs e )
 		{
 			try
 			{
+				if ( this.isInit )
+				{
+					this.ShowMessageBox( "正在初始化中, 请等待." );
+					return;
+				}
+
 				SetBtns( true );
 				string ip = this.tb_DomainOrIP.Text.Trim();
 				int port = Convert.ToInt32( this.tb_Port.Text.Trim() );
 				int maxConn = Convert.ToInt32( this.tb_MaxConnection.Text.Trim() );
 				bool firstIPType = this.cob_FirsIPType.SelectedIndex == 0;
 
-				server.Init( ip, port, maxConn, maxConn / 2, 16 * 1024, 10000, 10000, firstIPType );
-				server.StartListen().ContinueWith( f =>
+				server.StartListen( ip, port, firstIPType ).ContinueWith( f =>
 				{
 					if ( f.IsCompleted )
 					{
@@ -62,7 +90,7 @@ namespace SocketServer.WinForm
 			{
 				if ( server != null )
 				{
-					server.Close();
+					server.CloseAsync();
 				}
 
 				SetBtns( true );
@@ -74,7 +102,7 @@ namespace SocketServer.WinForm
 			try
 			{
 				SetBtns( false );
-				server.Close();
+				server.CloseAsync();
 			}
 			catch ( Exception ex )
 			{
@@ -92,9 +120,18 @@ namespace SocketServer.WinForm
 			this.SetBtns( e );
 		}
 
+		private void Server_ConnectedCountChangeEvent( object sender, int e )
+		{
+			AsyncPost( f =>
+			 {
+				 this.textBox1.Text = e.ToString();
+			 }, e );
+		}
+
 
 		private void SetBtns( bool start )
 		{
+			this.bt_Init.Enabled = !start;
 			this.bt_Start.Enabled = !start;
 			this.bt_Stop.Enabled = start;
 		}
@@ -106,7 +143,7 @@ namespace SocketServer.WinForm
 				MessageBox.Show( msg );
 			}, msg );
 		}
-		
+
 		private void AsyncPost<T>( Action<T> method, T state )
 		{
 			if ( this.sync != null )

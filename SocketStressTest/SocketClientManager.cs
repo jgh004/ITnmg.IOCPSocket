@@ -142,11 +142,11 @@ namespace SocketStressTest
                 }
 
                 IPAddress addr = f.Result[0];
-                IPEndPoint point = new IPEndPoint( addr, this.port );
 
                 for ( int i = 0; i < this.connCount; i++ )
-                {
-                    SocketClient s = new SocketClient( i, point, sendTimeOut, receiveTimeOut );
+				{
+					IPEndPoint point = new IPEndPoint( addr, this.port );
+					SocketClient s = new SocketClient( i, point, sendTimeOut, receiveTimeOut );
                     s.ErrorEvent += S_ErrorEvent;
                     s.StatusChangeEvent += S_StatusChangeEvent;
                     this.waitConnectionList.Add( i, s );
@@ -166,7 +166,7 @@ namespace SocketStressTest
 		/// 停止客户端任务
 		/// </summary>
 		/// <returns></returns>
-		public async Task StopAsync()
+		public void StopAsync()
         {
             for ( int i = 0; i < this.waitConnectionList.Count; i++ )
             {
