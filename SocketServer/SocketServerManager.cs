@@ -110,22 +110,21 @@ namespace SocketServer
 
 
 
-
 		/// <summary>
 		/// 初始化服务端
 		/// </summary>
 		/// <param name="maxConnectionCount">允许的最大连接数</param>
 		/// <param name="initConnectionResourceCount">启动时初始化多少个连接的资源</param>
-		/// <param name="singleBufferMaxSize">每个 socket 读写缓存最大字节数</param>
+		/// <param name="singleBufferMaxSize">每个 socket 读写缓存最大字节数, 默认为8k</param>
 		/// <param name="sendTimeOut">socket 发送超时时长, 以毫秒为单位</param>
 		/// <param name="receiveTimeOut">socket 接收超时时长, 以毫秒为单位</param>
-		public async Task InitAsync( int maxConnectionCount, int initConnectionResourceCount, int singleBufferMaxSize = 16 * 1024
+		public async Task InitAsync( int maxConnectionCount, int initConnectionResourceCount, int singleBufferMaxSize = 8 * 1024
 			, int sendTimeOut = 10000, int receiveTimeOut = 10000)
 		{
 			this.sendTimeOut = sendTimeOut;
 			this.receiveTimeOut = receiveTimeOut;
 			this.maxConnCount = maxConnectionCount;
-			this.initConnectionResourceCount = initConnectionResourceCount;
+			this.initConnectionResourceCount = Math.Min( initConnectionResourceCount, maxConnectionCount );
 			this.singleBufferMaxSize = singleBufferMaxSize;
 
 			await Task.Run( () =>
@@ -178,7 +177,7 @@ namespace SocketServer
 			}
 			catch ( Exception ex )
 			{
-				this.CloseAsync();
+				await this.CloseAsync();
 				this.OnError( this, ex );
 			}
 
@@ -214,9 +213,12 @@ namespace SocketServer
 				{
 					this.listenSocket.Close();
 					this.listenSocket = null;
+					this.semaphore.Close();
+					this.semaphore.Dispose();
 				}
 			}
 		}
+
 
 
 		/// <summary>
@@ -227,10 +229,6 @@ namespace SocketServer
 		{
 			await Task.Run( () =>
 			{
-				this.semaphore.Close();
-				this.semaphore.Dispose();
-				this.semaphore = new Semaphore( this.maxConnCount, this.maxConnCount );
-
 				if ( this.connectedList != null )
 				{
 					foreach ( var c in connectedList )
@@ -245,19 +243,20 @@ namespace SocketServer
 
 						c.Value.Close();
 					}
-
-					this.connectedList.Clear();
 				}
 			} );
 		}
-		
+
 		/// <summary>
 		/// 重置资源
 		/// </summary>
 		private void ResetResourses()
 		{
+			this.semaphore = null;
+			this.connectedList = null;
+			this.saePool = null;
+			
 			this.semaphore = new Semaphore( this.maxConnCount, this.maxConnCount );
-
 			//设置初始线程数为cpu核数*2
 			this.connectedList = new ConcurrentDictionary<IntPtr, Socket>( Environment.ProcessorCount * 2, this.maxConnCount );
 			//读写分离, 每个socket连接需要2个SocketAsyncEventArgs.

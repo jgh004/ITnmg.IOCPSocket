@@ -49,7 +49,7 @@
 			this.tb_MaxConnection.Name = "tb_MaxConnection";
 			this.tb_MaxConnection.Size = new System.Drawing.Size(56, 27);
 			this.tb_MaxConnection.TabIndex = 3;
-			this.tb_MaxConnection.Text = "1000";
+			this.tb_MaxConnection.Text = "10000";
 			// 
 			// bt_Start
 			// 

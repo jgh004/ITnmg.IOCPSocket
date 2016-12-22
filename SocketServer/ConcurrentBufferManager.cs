@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Management;
 using System.ServiceModel.Channels;
 using System.Text;
 using System.Threading.Tasks;
@@ -52,7 +53,7 @@ namespace SocketServer
 		/// <returns></returns>
 		public byte[] TakeBuffer(int bufferSize )
 		{
-			lock ( manager )
+			lock ( this )
 			{
 				byte[] result = null;
 
@@ -74,7 +75,7 @@ namespace SocketServer
 		/// <param name="buffer">要返回的缓冲区引用</param>
 		public void ReturnBuffer( byte[] buffer )
 		{
-			lock ( manager )
+			lock ( this )
 			{
 				manager.ReturnBuffer( buffer );
 			}
