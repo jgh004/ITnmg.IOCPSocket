@@ -36,7 +36,9 @@ namespace SocketServer.WinForm
 		private void bt_Init_Click( object sender, EventArgs e )
 		{
 			this.bt_Init.Enabled = false;
-			this.server.InitAsync( Convert.ToInt32( this.tb_MaxConnection.Text.Trim() ), 8 * 1024 ).ContinueWith( f =>
+			int maxCount = Convert.ToInt32( this.tb_MaxConnection.Text.Trim() );
+
+			this.server.InitAsync( maxCount, maxCount ).ContinueWith( f =>
 			{
 				if ( f.Exception == null )
 				{

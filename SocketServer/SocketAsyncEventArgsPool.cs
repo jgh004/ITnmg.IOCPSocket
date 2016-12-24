@@ -12,7 +12,7 @@ namespace SocketServer
 	/// <summary>
 	/// SocketAsyncEventArgs 管理池
 	/// </summary>
-	public class SocketAsyncEventArgsPool
+	public class SocketAsyncEventArgsPool : IDisposable
 	{
 		/// <summary>
 		/// SocketAsyncEventArgs 池
@@ -42,7 +42,7 @@ namespace SocketServer
 		{
 			get
 			{
-				return pool.Count;
+				return pool == null ? 0 : pool.Count;
 			}
 		}
 
@@ -59,7 +59,7 @@ namespace SocketServer
 			socketAsyncCompleted = completed;
 			singleMaxBufferSize = singleBufferMaxSize;
 			//缓存池大小与SocketAsyncEventArgs池大小相同,因为每个SocketAsyncEventArgs只用一个缓存
-			bufferManager = new ConcurrentBufferManager( long.MaxValue, singleBufferMaxSize );
+			bufferManager = new ConcurrentBufferManager( singleBufferMaxSize * capacity, singleBufferMaxSize );
 			pool = new ConcurrentStack<SocketAsyncEventArgs>();
 
 			for ( int i = 0; i < capacity; i++ )
@@ -137,6 +137,24 @@ namespace SocketServer
 			{
 				bufferManager.Clear();
 			}
+		}
+
+		/// <summary>
+		/// 释放资源
+		/// </summary>
+		public void Dispose()
+		{
+			this.Clear();
+			this.pool = null;
+
+			if ( this.bufferManager != null )
+			{
+				this.bufferManager.Dispose();
+				this.bufferManager = null;
+			}
+
+			GC.Collect();
+			GC.SuppressFinalize( this );
 		}
 
 

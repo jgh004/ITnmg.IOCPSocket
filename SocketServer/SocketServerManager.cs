@@ -124,12 +124,15 @@ namespace SocketServer
 			this.sendTimeOut = sendTimeOut;
 			this.receiveTimeOut = receiveTimeOut;
 			this.maxConnCount = maxConnectionCount;
-			this.initConnectionResourceCount = Math.Min( initConnectionResourceCount, maxConnectionCount );
+			this.initConnectionResourceCount = initConnectionResourceCount;
 			this.singleBufferMaxSize = singleBufferMaxSize;
 
 			await Task.Run( () =>
 			{
-				ResetResourses();
+				//设置初始线程数为cpu核数*2
+				this.connectedList = new ConcurrentDictionary<IntPtr, Socket>( Environment.ProcessorCount * 2, this.maxConnCount );
+				//读写分离, 每个socket连接需要2个SocketAsyncEventArgs.
+				saePool = new SocketAsyncEventArgsPool( this.initConnectionResourceCount * 2, ArgsSendAndReceive_Completed, this.singleBufferMaxSize );
 			} );
 		}
 
@@ -149,6 +152,7 @@ namespace SocketServer
 				if ( this.listenSocket == null )
 				{
 					result = await GetIPEndPoint( domainOrIP, port, preferredIPv4 );
+					this.semaphore = new Semaphore( this.maxConnCount, this.maxConnCount );
 					this.listenSocket = new Socket( result.AddressFamily, SocketType.Stream, ProtocolType.Tcp );
 					this.listenSocket.SendTimeout = this.sendTimeOut;
 					this.listenSocket.ReceiveTimeout = this.receiveTimeOut;
@@ -193,7 +197,7 @@ namespace SocketServer
 			{
 				try
 				{
-					await ClearResources();
+					await CloseConnectList();
 
 					try
 					{
@@ -215,6 +219,7 @@ namespace SocketServer
 					this.listenSocket = null;
 					this.semaphore.Close();
 					this.semaphore.Dispose();
+					this.semaphore = null;
 				}
 			}
 		}
@@ -222,46 +227,45 @@ namespace SocketServer
 
 
 		/// <summary>
-		/// 清理已连接资源
+		/// 引发 Error 事件
 		/// </summary>
-		/// <returns></returns>
-		private async Task ClearResources()
+		/// <param name="sender"></param>
+		/// <param name="e"></param>
+		protected void OnError( object sender, Exception e )
 		{
-			await Task.Run( () =>
+			if ( this.ErrorEvent != null )
 			{
-				if ( this.connectedList != null )
-				{
-					foreach ( var c in connectedList )
-					{
-						try
-						{
-							c.Value.Shutdown( SocketShutdown.Both );
-						}
-						catch ( Exception ex )
-						{
-						}
-
-						c.Value.Close();
-					}
-				}
-			} );
+				this.ErrorEvent( sender, e );
+			}
 		}
 
 		/// <summary>
-		/// 重置资源
+		/// 引发 ServerStateChange 事件
 		/// </summary>
-		private void ResetResourses()
+		/// <param name="sender"></param>
+		/// <param name="e"></param>
+		protected void OnServerStateChange( object sender, bool e )
 		{
-			this.semaphore = null;
-			this.connectedList = null;
-			this.saePool = null;
-			
-			this.semaphore = new Semaphore( this.maxConnCount, this.maxConnCount );
-			//设置初始线程数为cpu核数*2
-			this.connectedList = new ConcurrentDictionary<IntPtr, Socket>( Environment.ProcessorCount * 2, this.maxConnCount );
-			//读写分离, 每个socket连接需要2个SocketAsyncEventArgs.
-			saePool = new SocketAsyncEventArgsPool( this.initConnectionResourceCount * 2, ArgsSendAndReceive_Completed, this.singleBufferMaxSize );
+			if ( ServerStateChangeEvent != null )
+			{
+				ServerStateChangeEvent( sender, e );
+			}
 		}
+
+		/// <summary>
+		/// 引发 ConnectedCountChangeEvent 事件
+		/// </summary>
+		/// <param name="sender"></param>
+		/// <param name="e"></param>
+		protected void OnConnectedCountChange( object sender, int e )
+		{
+			if ( this.ConnectedCountChangeEvent != null )
+			{
+				this.ConnectedCountChangeEvent( sender, e );
+			}
+		}
+
+
 
 		/// <summary>
 		/// 分析ip或域名,返回 IPEndPoint 实例
@@ -300,6 +304,34 @@ namespace SocketServer
 			}
 
 			return result;
+		}
+
+		/// <summary>
+		/// 关闭已连接socket
+		/// </summary>
+		/// <returns></returns>
+		private async Task CloseConnectList()
+		{
+			await Task.Run( () =>
+			{
+				if ( this.connectedList != null )
+				{
+					foreach ( var c in connectedList )
+					{
+						try
+						{
+							c.Value.Shutdown( SocketShutdown.Both );
+						}
+						catch ( Exception ex )
+						{
+						}
+
+						c.Value.Close();
+					}
+
+					this.connectedList.Clear();
+				}
+			} );
 		}
 
 		/// <summary>
@@ -383,45 +415,5 @@ namespace SocketServer
 		{
 		}
 
-
-		
-		/// <summary>
-		/// 引发 Error 事件
-		/// </summary>
-		/// <param name="sender"></param>
-		/// <param name="e"></param>
-		protected void OnError( object sender, Exception e )
-		{
-			if ( this.ErrorEvent != null )
-			{
-				this.ErrorEvent( sender, e );
-			}
-		}
-
-		/// <summary>
-		/// 引发 ServerStateChange 事件
-		/// </summary>
-		/// <param name="sender"></param>
-		/// <param name="e"></param>
-		protected void OnServerStateChange( object sender, bool e )
-		{
-			if ( ServerStateChangeEvent != null )
-			{
-				ServerStateChangeEvent( sender, e );
-			}
-		}
-
-		/// <summary>
-		/// 引发 ConnectedCountChangeEvent 事件
-		/// </summary>
-		/// <param name="sender"></param>
-		/// <param name="e"></param>
-		protected void OnConnectedCountChange( object sender, int e )
-		{
-			if ( this.ConnectedCountChangeEvent != null )
-			{
-				this.ConnectedCountChangeEvent( sender, e );
-			}
-		}
 	}
 }

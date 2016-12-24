@@ -11,7 +11,7 @@ namespace SocketServer
 	/// <summary>
 	/// 线程安全的缓存管理类
 	/// </summary>
-	public class ConcurrentBufferManager
+	public class ConcurrentBufferManager : IDisposable
 	{
 		/// <summary>
 		/// 非线程安全的 BufferManager 实例
@@ -33,20 +33,6 @@ namespace SocketServer
 
 
 		/// <summary>
-		/// 释放目前在管理器中缓存的缓冲区
-		/// </summary>
-		public void Clear()
-		{
-			if ( manager != null )
-			{
-				lock ( this )
-				{
-					manager.Clear();
-				}
-			}
-		}
-
-		/// <summary>
 		/// 从缓冲池获取一个至少为指定大小的缓冲区
 		/// </summary>
 		/// <param name="bufferSize">所请求缓冲区的大小（以字节为单位）</param>
@@ -63,6 +49,7 @@ namespace SocketServer
 				}
 				catch ( Exception ex )
 				{
+					GC.Collect( GC.GetGeneration(this), GCCollectionMode.Forced, false );
 				}
 
 				return result;
@@ -79,6 +66,31 @@ namespace SocketServer
 			{
 				manager.ReturnBuffer( buffer );
 			}
+		}
+
+		/// <summary>
+		/// 释放目前在管理器中缓存的缓冲区
+		/// </summary>
+		public void Clear()
+		{
+			lock ( this )
+			{
+				if ( manager != null )
+				{
+					manager.Clear();
+				}
+			}
+		}
+
+		/// <summary>
+		/// 释放资源
+		/// </summary>
+		public void Dispose()
+		{
+			this.Clear();
+			this.manager = null;
+			GC.Collect();
+			GC.SuppressFinalize( this );
 		}
 	}
 }
