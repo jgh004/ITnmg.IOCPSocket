@@ -152,8 +152,7 @@ namespace SocketServer
 				this.bufferManager.Dispose();
 				this.bufferManager = null;
 			}
-
-			GC.Collect();
+			
 			GC.SuppressFinalize( this );
 		}
 

@@ -89,7 +89,6 @@ namespace SocketServer
 		{
 			this.Clear();
 			this.manager = null;
-			GC.Collect();
 			GC.SuppressFinalize( this );
 		}
 	}
