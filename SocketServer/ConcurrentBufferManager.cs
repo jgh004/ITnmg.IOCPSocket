@@ -6,7 +6,7 @@ using System.ServiceModel.Channels;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace SocketServer
+namespace IOCPSocket
 {
 	/// <summary>
 	/// 线程安全的缓存管理类

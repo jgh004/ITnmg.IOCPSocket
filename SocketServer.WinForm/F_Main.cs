@@ -4,11 +4,12 @@ using System.ComponentModel;
 using System.Data;
 using System.Drawing;
 using System.Linq;
+using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using SocketServer;
+using IOCPSocket;
 
 namespace SocketServer.WinForm
 {
@@ -29,8 +30,8 @@ namespace SocketServer.WinForm
 			this.cob_FirsIPType.SelectedIndex = 0;
 			this.server = new SocketServerManager();
 			this.server.ErrorEvent += Server_ErrorEvent;
-			this.server.ServerStateChangeEvent += Server_ServerStateChangeEvent;
-			this.server.ConnectedCountChangeEvent += Server_ConnectedCountChangeEvent;
+			this.server.ServerStatusChangeEvent += Server_ServerStateChangeEvent;
+			this.server.ConnectedStatusChangeEvent += Server_ConnectedStatusChangeEvent;
 		}
 
 		private void bt_Init_Click( object sender, EventArgs e )
@@ -38,7 +39,7 @@ namespace SocketServer.WinForm
 			this.bt_Init.Enabled = false;
 			int maxCount = Convert.ToInt32( this.tb_MaxConnection.Text.Trim() );
 
-			this.server.InitAsync( maxCount, maxCount ).ContinueWith( f =>
+			this.server.InitAsync( maxCount, maxCount, 8 * 1024, 100000, 100000 ).ContinueWith( f =>
 			{
 				if ( f.Exception == null )
 				{
@@ -72,7 +73,7 @@ namespace SocketServer.WinForm
 				int maxConn = Convert.ToInt32( this.tb_MaxConnection.Text.Trim() );
 				bool firstIPType = this.cob_FirsIPType.SelectedIndex == 0;
 
-				server.StartListen( ip, port, firstIPType ).ContinueWith( f =>
+				server.StartAsync( ip, port, firstIPType ).ContinueWith( f =>
 				{
 					if ( f.IsCompleted )
 					{
@@ -92,7 +93,7 @@ namespace SocketServer.WinForm
 			{
 				if ( server != null )
 				{
-					server.CloseAsync();
+					server.StopAsync();
 				}
 
 				SetBtns( true );
@@ -104,7 +105,7 @@ namespace SocketServer.WinForm
 			try
 			{
 				SetBtns( false );
-				server.CloseAsync();
+				server.StopAsync();
 			}
 			catch ( Exception ex )
 			{
@@ -114,20 +115,26 @@ namespace SocketServer.WinForm
 
 		private void Server_ErrorEvent( object sender, Exception e )
 		{
-			ShowMessageBox( e.Message );
+			WriteConsole( $"Error: {e.Message}" );
 		}
 
 		private void Server_ServerStateChangeEvent( object sender, bool e )
 		{
 			this.SetBtns( e );
+			WriteConsole( $"Server: {(e ? "启动" : "停止")}" );
 		}
 
-		private void Server_ConnectedCountChangeEvent( object sender, int e )
+		private void Server_ConnectedStatusChangeEvent( object sender, SocketStatusChangeArgs e )
 		{
 			AsyncPost( f =>
-			 {
-				 this.textBox1.Text = e.ToString();
-			 }, e );
+			{
+				this.textBox1.Text = e.ConnectedCount.ToString();
+			}, e );
+
+			if ( e.Error != SocketError.Success )
+			{
+				WriteConsole( $"UserTokenId:{e.UserTokenId}, Status:{e.Status}, ConnCount:{e.ConnectedCount}, Error:{e.Error}" );
+			}
 		}
 
 
@@ -155,6 +162,20 @@ namespace SocketServer.WinForm
 					method( (T)f );
 				}, state );
 			}
+		}
+
+		private void WriteConsole( string s )
+		{
+			this.AsyncPost( f =>
+			{
+				if ( this.tb_Console.Lines.Length > 20000 )
+				{
+					this.tb_Console.Text = "";
+				}
+
+				this.tb_Console.Text += (this.tb_Console.Text.Length > 0 ? "\r\n" : "") + s;
+				this.tb_Console.SelectionStart = this.tb_Console.Text.Length;
+			}, s );
 		}
 	}
 }

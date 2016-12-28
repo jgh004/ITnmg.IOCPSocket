@@ -33,7 +33,7 @@
 			this.ts_Settings = new System.Windows.Forms.ToolStripButton();
 			this.ts_SendData = new System.Windows.Forms.ToolStripButton();
 			this.panel1 = new System.Windows.Forms.Panel();
-			this.bt_End = new System.Windows.Forms.Button();
+			this.bt_Stop = new System.Windows.Forms.Button();
 			this.bt_Start = new System.Windows.Forms.Button();
 			this.label3 = new System.Windows.Forms.Label();
 			this.tb_ConnectionCount = new System.Windows.Forms.TextBox();
@@ -77,7 +77,7 @@
 			// 
 			// panel1
 			// 
-			this.panel1.Controls.Add(this.bt_End);
+			this.panel1.Controls.Add(this.bt_Stop);
 			this.panel1.Controls.Add(this.bt_Start);
 			this.panel1.Controls.Add(this.label3);
 			this.panel1.Controls.Add(this.tb_ConnectionCount);
@@ -92,16 +92,16 @@
 			this.panel1.Size = new System.Drawing.Size(1098, 54);
 			this.panel1.TabIndex = 1;
 			// 
-			// bt_End
+			// bt_Stop
 			// 
-			this.bt_End.Location = new System.Drawing.Point(941, 7);
-			this.bt_End.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
-			this.bt_End.Name = "bt_End";
-			this.bt_End.Size = new System.Drawing.Size(84, 34);
-			this.bt_End.TabIndex = 7;
-			this.bt_End.Text = "Save";
-			this.bt_End.UseVisualStyleBackColor = true;
-			this.bt_End.Click += new System.EventHandler(this.bt_End_Click);
+			this.bt_Stop.Location = new System.Drawing.Point(941, 7);
+			this.bt_Stop.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
+			this.bt_Stop.Name = "bt_Stop";
+			this.bt_Stop.Size = new System.Drawing.Size(84, 34);
+			this.bt_Stop.TabIndex = 7;
+			this.bt_Stop.Text = "Stop";
+			this.bt_Stop.UseVisualStyleBackColor = true;
+			this.bt_Stop.Click += new System.EventHandler(this.bt_Stop_Click);
 			// 
 			// bt_Start
 			// 
@@ -130,8 +130,7 @@
 			this.tb_ConnectionCount.Name = "tb_ConnectionCount";
 			this.tb_ConnectionCount.Size = new System.Drawing.Size(128, 27);
 			this.tb_ConnectionCount.TabIndex = 4;
-			this.tb_ConnectionCount.Text = "1";
-			this.tb_ConnectionCount.KeyPress += new System.Windows.Forms.KeyPressEventHandler(this.tb_Port_KeyPress);
+			this.tb_ConnectionCount.Text = "2";
 			// 
 			// label2
 			// 
@@ -150,7 +149,6 @@
 			this.tb_Port.Size = new System.Drawing.Size(82, 27);
 			this.tb_Port.TabIndex = 2;
 			this.tb_Port.Text = "9000";
-			this.tb_Port.KeyPress += new System.Windows.Forms.KeyPressEventHandler(this.tb_Port_KeyPress);
 			// 
 			// label1
 			// 
@@ -224,7 +222,7 @@
         private System.Windows.Forms.TextBox tb_Port;
         private System.Windows.Forms.Label label1;
         private System.Windows.Forms.TextBox tb_IP;
-        private System.Windows.Forms.Button bt_End;
+        private System.Windows.Forms.Button bt_Stop;
         private System.Windows.Forms.Panel panel2;
         private System.Windows.Forms.ToolStripButton ts_SendData;
 		private System.Windows.Forms.TextBox textBox1;

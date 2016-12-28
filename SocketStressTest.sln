@@ -11,7 +11,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SocketServer.WinForm", "Soc
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SocketStressTest.Interface", "SocketStressTest.Interface\SocketStressTest.Interface.csproj", "{AEFCEBA4-0E8E-429D-AD10-4ACE3BF794FF}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SocketServer", "SocketServer\SocketServer.csproj", "{2D636F35-8EC9-4002-8AF6-71CBE237C359}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IOCPSocket", "SocketServer\IOCPSocket.csproj", "{2D636F35-8EC9-4002-8AF6-71CBE237C359}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SocketServer.WPF", "SocketServer.WPF\SocketServer.WPF.csproj", "{88D46DA5-1E71-4EBF-8DC8-462C10C02183}"
 EndProject

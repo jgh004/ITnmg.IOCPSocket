@@ -154,9 +154,9 @@
     <Resource Include="Resources\Entypo-license.txt" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\SocketServer\SocketServer.csproj">
+    <ProjectReference Include="..\SocketServer\IOCPSocket.csproj">
       <Project>{2d636f35-8ec9-4002-8af6-71cbe237c359}</Project>
-      <Name>SocketServer</Name>
+      <Name>IOCPSocket</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

@@ -100,6 +100,10 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\SocketServer\IOCPSocket.csproj">
+      <Project>{2d636f35-8ec9-4002-8af6-71cbe237c359}</Project>
+      <Name>IOCPSocket</Name>
+    </ProjectReference>
     <ProjectReference Include="..\SocketStressTest\SocketStressTest.csproj">
       <Project>{b44d7d0a-c581-4981-8515-b5b446791fed}</Project>
       <Name>SocketStressTest</Name>

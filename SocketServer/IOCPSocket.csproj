@@ -7,8 +7,8 @@
     <ProjectGuid>{2D636F35-8EC9-4002-8AF6-71CBE237C359}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>SocketServer</RootNamespace>
-    <AssemblyName>SocketServer</AssemblyName>
+    <RootNamespace>IOCPSocket</RootNamespace>
+    <AssemblyName>IOCPSocket</AssemblyName>
     <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkProfile />
@@ -64,10 +64,12 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ConcurrentBufferManager.cs" />
+    <Compile Include="SocketManagerBase.cs" />
+    <Compile Include="SocketStatusChangeArgs.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SocketAsyncEventArgsPool.cs" />
+    <Compile Include="SocketUserToken.cs" />
     <Compile Include="SocketServerManager.cs" />
-    <Compile Include="SocketAsyncEventArgsUserToken.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

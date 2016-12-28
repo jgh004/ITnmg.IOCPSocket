@@ -7,7 +7,7 @@ using System.ServiceModel.Channels;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace SocketServer
+namespace IOCPSocket
 {
 	/// <summary>
 	/// SocketAsyncEventArgs 管理池
@@ -97,10 +97,14 @@ namespace SocketServer
 				throw new ArgumentNullException( "item" );
 			}
 
-			item.AcceptSocket = null;
-			item.RemoteEndPoint = null;
-			item.UserToken = null;
-			item.DisconnectReuseSocket = true;
+			lock ( this )
+			{
+				item.AcceptSocket = null;
+				item.RemoteEndPoint = null;
+				item.UserToken = null;
+				item.DisconnectReuseSocket = true;
+			}
+
 			pool.Push( item );
 		}
 
@@ -114,7 +118,7 @@ namespace SocketServer
 
 			if ( !pool.TryPop( out result ) )
 			{
-				lock ( pool )
+				lock ( this )
 				{
 					result = TryCreateNew();
 				}

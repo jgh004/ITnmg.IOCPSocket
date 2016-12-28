@@ -8,59 +8,48 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using SocketStressTest;
 
 namespace SocketStressTestTools
 {
-    public partial class F_Main : Form
-    {
+	public partial class F_Main : Form
+	{
 		private SynchronizationContext sync = null;
+		SocketClientManager clientManager;
 
-        public F_Main()
-        {
-            InitializeComponent();
-        }
+		public F_Main()
+		{
+			InitializeComponent();
+		}
 
-        private void F_Main_Load( object sender, EventArgs e )
-        {
+		private void F_Main_Load( object sender, EventArgs e )
+		{
 			this.sync = SynchronizationContext.Current;
-        }
-
-        private void bt_Start_Click( object sender, EventArgs e )
-        {
-			SocketStressTest.SocketClientManager cm = new SocketStressTest.SocketClientManager();
-			cm.Init( this.tb_IP.Text.Trim(), Convert.ToInt32( this.tb_Port.Text.Trim() ), Convert.ToInt32( this.tb_ConnectionCount.Text.Trim() ), 10, 10 );
-			cm.ConnectedCountChange += ( a, b ) =>
+			clientManager = new SocketClientManager();
+			clientManager.ConnectedStatusChangeEvent += ( a, b ) =>
 			{
-				this.sync.Post(f=>
+				this.sync.Post( f =>
 				{
-					this.textBox1.Text = b.ToString();
+					this.textBox1.Text = b.ConnectedCount.ToString();
 				}, b );
 			};
+		}
 
-			try
+		private void bt_Start_Click( object sender, EventArgs e )
+		{
+			var max = Convert.ToInt32( this.tb_ConnectionCount.Text.Trim() );
+			clientManager.InitAsync( max, max, 8 * 1024, 10000, 10000 ).ContinueWith( m =>
 			{
-				cm.StartAsync().ContinueWith(f=>
-				{
-					this.sync.Post(k=>
-					{
-						MessageBox.Show((( TaskStatus)k).ToString());
-					},f.Status );
-				} );
-			}
-			catch ( Exception ex )
+				clientManager.StartAsync( this.tb_IP.Text.Trim(), Convert.ToInt32( this.tb_Port.Text.Trim() ) ).Wait();
+			} );
+		}
+
+		private void bt_Stop_Click( object sender, EventArgs e )
+		{
+			if ( clientManager != null )
 			{
-				MessageBox.Show(ex.ToString());
+				clientManager.StopAsync();
 			}
-        }
-
-        private void bt_End_Click( object sender, EventArgs e )
-        {
-
-        }
-
-        private void tb_Port_KeyPress( object sender, KeyPressEventArgs e )
-        {
-
-        }
-    }
+		}
+	}
 }

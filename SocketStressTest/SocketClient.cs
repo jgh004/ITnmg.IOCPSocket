@@ -90,12 +90,18 @@ namespace SocketStressTest
             }
             private set
 			{
+				bool isChange = false;
+
 				lock ( this )
 				{
+					isChange = value != this.connStatus;
 					this.connStatus = value;
 				}
 
-                this.OnStatusChange( this.id, value );
+				if ( isChange )
+				{
+					this.OnStatusChange( this.id, value );
+				}
             }
         }
 
@@ -139,6 +145,22 @@ namespace SocketStressTest
                 Connect_Completed( this.socket, connArgs );
             }
         }
+
+		public void Close()
+		{
+			if ( this.socket != null )
+			{
+				try
+				{
+					this.socket.Shutdown( SocketShutdown.Both );
+				}
+				catch ( Exception ex )
+				{
+				}
+
+				this.socket.Close();
+			}
+		}
 
         /// <summary>
         /// 发送数据
@@ -207,7 +229,6 @@ namespace SocketStressTest
 			else
 			{
 				this.ConnStatus = false;
-
 				this.OnError( this.id, e.SocketError );
 			}
 
@@ -222,11 +243,13 @@ namespace SocketStressTest
         private void SendEve_Completed( object sender, SocketAsyncEventArgs e )
         {
             if ( e.SocketError == SocketError.Success )
-            {
-            }
+			{
+				this.ConnStatus = true;
+			}
             else
-            {
-                this.OnError( this.id, e.SocketError );
+			{
+				this.ConnStatus = false;
+				this.OnError( this.id, e.SocketError );
             }
         }
 
@@ -238,11 +261,13 @@ namespace SocketStressTest
         private void ReceiveEve_Completed( object sender, SocketAsyncEventArgs e )
         {
             if ( e.SocketError == SocketError.Success )
-            {
-            }
+			{
+				this.ConnStatus = true;
+			}
             else
-            {
-                this.OnError( this.id, e.SocketError );
+			{
+				this.ConnStatus = false;
+				this.OnError( this.id, e.SocketError );
             }
         }
     }

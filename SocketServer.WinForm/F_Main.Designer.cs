@@ -40,11 +40,19 @@
 			this.cob_FirsIPType = new System.Windows.Forms.ComboBox();
 			this.textBox1 = new System.Windows.Forms.TextBox();
 			this.bt_Init = new System.Windows.Forms.Button();
+			this.panel1 = new System.Windows.Forms.Panel();
+			this.splitContainer1 = new System.Windows.Forms.SplitContainer();
+			this.tb_Console = new System.Windows.Forms.TextBox();
+			this.panel1.SuspendLayout();
+			((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).BeginInit();
+			this.splitContainer1.Panel1.SuspendLayout();
+			this.splitContainer1.Panel2.SuspendLayout();
+			this.splitContainer1.SuspendLayout();
 			this.SuspendLayout();
 			// 
 			// tb_MaxConnection
 			// 
-			this.tb_MaxConnection.Location = new System.Drawing.Point(725, 23);
+			this.tb_MaxConnection.Location = new System.Drawing.Point(724, 18);
 			this.tb_MaxConnection.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			this.tb_MaxConnection.Name = "tb_MaxConnection";
 			this.tb_MaxConnection.Size = new System.Drawing.Size(56, 27);
@@ -53,7 +61,7 @@
 			// 
 			// bt_Start
 			// 
-			this.bt_Start.Location = new System.Drawing.Point(904, 21);
+			this.bt_Start.Location = new System.Drawing.Point(903, 16);
 			this.bt_Start.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			this.bt_Start.Name = "bt_Start";
 			this.bt_Start.Size = new System.Drawing.Size(84, 31);
@@ -65,7 +73,7 @@
 			// label1
 			// 
 			this.label1.AutoSize = true;
-			this.label1.Location = new System.Drawing.Point(14, 26);
+			this.label1.Location = new System.Drawing.Point(13, 21);
 			this.label1.Name = "label1";
 			this.label1.Size = new System.Drawing.Size(108, 20);
 			this.label1.TabIndex = 3;
@@ -73,7 +81,7 @@
 			// 
 			// tb_DomainOrIP
 			// 
-			this.tb_DomainOrIP.Location = new System.Drawing.Point(123, 23);
+			this.tb_DomainOrIP.Location = new System.Drawing.Point(122, 18);
 			this.tb_DomainOrIP.Name = "tb_DomainOrIP";
 			this.tb_DomainOrIP.Size = new System.Drawing.Size(119, 27);
 			this.tb_DomainOrIP.TabIndex = 1;
@@ -82,7 +90,7 @@
 			// label2
 			// 
 			this.label2.AutoSize = true;
-			this.label2.Location = new System.Drawing.Point(268, 26);
+			this.label2.Location = new System.Drawing.Point(267, 21);
 			this.label2.Name = "label2";
 			this.label2.Size = new System.Drawing.Size(44, 20);
 			this.label2.TabIndex = 5;
@@ -90,7 +98,7 @@
 			// 
 			// tb_Port
 			// 
-			this.tb_Port.Location = new System.Drawing.Point(315, 23);
+			this.tb_Port.Location = new System.Drawing.Point(314, 18);
 			this.tb_Port.Name = "tb_Port";
 			this.tb_Port.Size = new System.Drawing.Size(56, 27);
 			this.tb_Port.TabIndex = 2;
@@ -99,7 +107,7 @@
 			// label3
 			// 
 			this.label3.AutoSize = true;
-			this.label3.Location = new System.Drawing.Point(589, 26);
+			this.label3.Location = new System.Drawing.Point(588, 21);
 			this.label3.Name = "label3";
 			this.label3.Size = new System.Drawing.Size(132, 20);
 			this.label3.TabIndex = 7;
@@ -107,7 +115,7 @@
 			// 
 			// bt_Stop
 			// 
-			this.bt_Stop.Location = new System.Drawing.Point(1008, 21);
+			this.bt_Stop.Location = new System.Drawing.Point(1007, 16);
 			this.bt_Stop.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			this.bt_Stop.Name = "bt_Stop";
 			this.bt_Stop.Size = new System.Drawing.Size(84, 31);
@@ -119,7 +127,7 @@
 			// label4
 			// 
 			this.label4.AutoSize = true;
-			this.label4.Location = new System.Drawing.Point(403, 26);
+			this.label4.Location = new System.Drawing.Point(402, 21);
 			this.label4.Name = "label4";
 			this.label4.Size = new System.Drawing.Size(101, 20);
 			this.label4.TabIndex = 102;
@@ -132,21 +140,21 @@
 			this.cob_FirsIPType.Items.AddRange(new object[] {
             "IPv4",
             "IPv6"});
-			this.cob_FirsIPType.Location = new System.Drawing.Point(508, 22);
+			this.cob_FirsIPType.Location = new System.Drawing.Point(507, 17);
 			this.cob_FirsIPType.Name = "cob_FirsIPType";
 			this.cob_FirsIPType.Size = new System.Drawing.Size(56, 28);
 			this.cob_FirsIPType.TabIndex = 103;
 			// 
 			// textBox1
 			// 
-			this.textBox1.Location = new System.Drawing.Point(123, 130);
+			this.textBox1.Location = new System.Drawing.Point(59, 26);
 			this.textBox1.Name = "textBox1";
 			this.textBox1.Size = new System.Drawing.Size(119, 27);
 			this.textBox1.TabIndex = 104;
 			// 
 			// bt_Init
 			// 
-			this.bt_Init.Location = new System.Drawing.Point(800, 21);
+			this.bt_Init.Location = new System.Drawing.Point(799, 16);
 			this.bt_Init.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			this.bt_Init.Name = "bt_Init";
 			this.bt_Init.Size = new System.Drawing.Size(84, 31);
@@ -155,31 +163,78 @@
 			this.bt_Init.UseVisualStyleBackColor = true;
 			this.bt_Init.Click += new System.EventHandler(this.bt_Init_Click);
 			// 
+			// panel1
+			// 
+			this.panel1.Controls.Add(this.tb_DomainOrIP);
+			this.panel1.Controls.Add(this.bt_Init);
+			this.panel1.Controls.Add(this.tb_MaxConnection);
+			this.panel1.Controls.Add(this.bt_Start);
+			this.panel1.Controls.Add(this.cob_FirsIPType);
+			this.panel1.Controls.Add(this.label1);
+			this.panel1.Controls.Add(this.label4);
+			this.panel1.Controls.Add(this.label2);
+			this.panel1.Controls.Add(this.bt_Stop);
+			this.panel1.Controls.Add(this.tb_Port);
+			this.panel1.Controls.Add(this.label3);
+			this.panel1.Dock = System.Windows.Forms.DockStyle.Top;
+			this.panel1.Location = new System.Drawing.Point(0, 0);
+			this.panel1.Name = "panel1";
+			this.panel1.Size = new System.Drawing.Size(1138, 67);
+			this.panel1.TabIndex = 106;
+			// 
+			// splitContainer1
+			// 
+			this.splitContainer1.Dock = System.Windows.Forms.DockStyle.Fill;
+			this.splitContainer1.FixedPanel = System.Windows.Forms.FixedPanel.Panel2;
+			this.splitContainer1.Location = new System.Drawing.Point(0, 67);
+			this.splitContainer1.Name = "splitContainer1";
+			this.splitContainer1.Orientation = System.Windows.Forms.Orientation.Horizontal;
+			// 
+			// splitContainer1.Panel1
+			// 
+			this.splitContainer1.Panel1.Controls.Add(this.textBox1);
+			// 
+			// splitContainer1.Panel2
+			// 
+			this.splitContainer1.Panel2.Controls.Add(this.tb_Console);
+			this.splitContainer1.Size = new System.Drawing.Size(1138, 560);
+			this.splitContainer1.SplitterDistance = 360;
+			this.splitContainer1.TabIndex = 107;
+			// 
+			// tb_Console
+			// 
+			this.tb_Console.BackColor = System.Drawing.Color.Black;
+			this.tb_Console.Dock = System.Windows.Forms.DockStyle.Fill;
+			this.tb_Console.ForeColor = System.Drawing.Color.White;
+			this.tb_Console.Location = new System.Drawing.Point(0, 0);
+			this.tb_Console.Multiline = true;
+			this.tb_Console.Name = "tb_Console";
+			this.tb_Console.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
+			this.tb_Console.Size = new System.Drawing.Size(1138, 196);
+			this.tb_Console.TabIndex = 0;
+			// 
 			// F_Main
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(9F, 20F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
 			this.ClientSize = new System.Drawing.Size(1138, 627);
-			this.Controls.Add(this.bt_Init);
-			this.Controls.Add(this.textBox1);
-			this.Controls.Add(this.cob_FirsIPType);
-			this.Controls.Add(this.label4);
-			this.Controls.Add(this.bt_Stop);
-			this.Controls.Add(this.label3);
-			this.Controls.Add(this.tb_Port);
-			this.Controls.Add(this.label2);
-			this.Controls.Add(this.tb_DomainOrIP);
-			this.Controls.Add(this.label1);
-			this.Controls.Add(this.bt_Start);
-			this.Controls.Add(this.tb_MaxConnection);
+			this.Controls.Add(this.splitContainer1);
+			this.Controls.Add(this.panel1);
 			this.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
 			this.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
 			this.Name = "F_Main";
 			this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
 			this.Text = "Socket Server";
 			this.Load += new System.EventHandler(this.F_Main_Load);
+			this.panel1.ResumeLayout(false);
+			this.panel1.PerformLayout();
+			this.splitContainer1.Panel1.ResumeLayout(false);
+			this.splitContainer1.Panel1.PerformLayout();
+			this.splitContainer1.Panel2.ResumeLayout(false);
+			this.splitContainer1.Panel2.PerformLayout();
+			((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).EndInit();
+			this.splitContainer1.ResumeLayout(false);
 			this.ResumeLayout(false);
-			this.PerformLayout();
 
 		}
 
@@ -197,6 +252,9 @@
 		private System.Windows.Forms.ComboBox cob_FirsIPType;
 		private System.Windows.Forms.TextBox textBox1;
 		private System.Windows.Forms.Button bt_Init;
+		private System.Windows.Forms.Panel panel1;
+		private System.Windows.Forms.SplitContainer splitContainer1;
+		private System.Windows.Forms.TextBox tb_Console;
 	}
 }
 
