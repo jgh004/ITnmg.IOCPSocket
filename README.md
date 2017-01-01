@@ -1,2 +1,3 @@
-# SocketStressTest
-Socket 压力测试工具
+# IOCPSocket
+
+IOCP Socket Library & Socket Stress Test Tools
