@@ -179,7 +179,7 @@
 			this.panel1.Dock = System.Windows.Forms.DockStyle.Top;
 			this.panel1.Location = new System.Drawing.Point(0, 0);
 			this.panel1.Name = "panel1";
-			this.panel1.Size = new System.Drawing.Size(1138, 67);
+			this.panel1.Size = new System.Drawing.Size(1182, 67);
 			this.panel1.TabIndex = 106;
 			// 
 			// splitContainer1
@@ -197,7 +197,7 @@
 			// splitContainer1.Panel2
 			// 
 			this.splitContainer1.Panel2.Controls.Add(this.tb_Console);
-			this.splitContainer1.Size = new System.Drawing.Size(1138, 560);
+			this.splitContainer1.Size = new System.Drawing.Size(1182, 566);
 			this.splitContainer1.SplitterDistance = 360;
 			this.splitContainer1.TabIndex = 107;
 			// 
@@ -210,14 +210,14 @@
 			this.tb_Console.Multiline = true;
 			this.tb_Console.Name = "tb_Console";
 			this.tb_Console.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
-			this.tb_Console.Size = new System.Drawing.Size(1138, 196);
+			this.tb_Console.Size = new System.Drawing.Size(1182, 202);
 			this.tb_Console.TabIndex = 0;
 			// 
 			// F_Main
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(9F, 20F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-			this.ClientSize = new System.Drawing.Size(1138, 627);
+			this.ClientSize = new System.Drawing.Size(1182, 633);
 			this.Controls.Add(this.splitContainer1);
 			this.Controls.Add(this.panel1);
 			this.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));

@@ -33,7 +33,7 @@ namespace IOCPSocket
 		/// <summary>
 		/// 获取 Socket 异常信息
 		/// </summary>
-		public SocketError Error
+		public SocketError? Error
 		{
 			get;
 			internal set;

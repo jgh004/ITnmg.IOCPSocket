@@ -124,6 +124,7 @@ namespace IOCPSocket
 
 			await Task.Run( () =>
 			{
+				this.semaphore = new Semaphore( this.maxConnCount, this.maxConnCount );
 				//设置初始线程数为cpu核数*2
 				this.connectedEntityList = new ConcurrentDictionary<int, IOCPSocket.SocketUserToken>( Environment.ProcessorCount * 2, this.maxConnCount );
 				//读写分离, 每个socket连接需要2个SocketAsyncEventArgs.
@@ -131,10 +132,9 @@ namespace IOCPSocket
 
 				this.entityPool = new ConcurrentStack<SocketUserToken>();
 
-				Parallel.For( 0, maxConnCount, i =>
+				Parallel.For( 0, initConnectionResourceCount, i =>
 				{
-					SocketUserToken token = new SocketUserToken( i );
-					token.CurrentSocket = new Socket( SocketType.Stream, ProtocolType.Tcp );
+					SocketUserToken token = new SocketUserToken();
 					token.ReceiveArgs = saePool.Pop();
 					token.SendArgs = saePool.Pop();
 					this.entityPool.Push( token );
@@ -164,7 +164,7 @@ namespace IOCPSocket
 		/// <param name="tokenId"></param>
 		/// <param name="status"></param>
 		/// <param name="error"></param>
-		protected virtual void OnConnectedStatusChange( object sender, int tokenId, bool status, SocketError error )
+		protected virtual void OnConnectedStatusChange( object sender, int tokenId, bool status, SocketError? error )
 		{
 			if ( this.ConnectedStatusChangeEvent != null )
 			{
@@ -219,26 +219,6 @@ namespace IOCPSocket
 		}
 
 		/// <summary>
-		/// 关闭已连接socket
-		/// </summary>
-		/// <returns></returns>
-		protected virtual async Task CloseConnectList()
-		{
-			await Task.Run( () =>
-			{
-				if ( this.connectedEntityList != null )
-				{
-					connectedEntityList.AsParallel().ForAll( f =>
-					{
-						FreeUserToken( f.Value );
-					} );
-
-					this.connectedEntityList.Clear();
-				}
-			} );
-		}
-
-		/// <summary>
 		/// 执行 socket 连接成功时的处理
 		/// </summary>
 		/// <param name="s"></param>
@@ -246,46 +226,52 @@ namespace IOCPSocket
 		protected virtual SocketUserToken ToConnCompletedSuccess( Socket s )
 		{
 			SocketUserToken result = null;
-			SocketError error = SocketError.Success;
 
 			try
 			{
-				if ( !entityPool.TryPop( out result ) )
+				//等待3秒,如果有空余资源,接收连接,否则断开socket.
+				if ( semaphore.WaitOne( 3000 ) )
 				{
-					result = new SocketUserToken( (int)s.Handle );
-					result.CurrentSocket = new Socket( SocketType.Stream, ProtocolType.Tcp );
-					result.ReceiveArgs = saePool.Pop();
-					result.SendArgs = saePool.Pop();
-				}
+					result = GetUserToken();
 
-				result.CurrentSocket = s;
-				result.ReceiveArgs.UserToken = result;
-				result.SendArgs.UserToken = result;
+					if ( result != null )
+					{
+						result.CurrentSocket = s;
+						result.Id = (int)s.Handle;
+						result.ReceiveArgs.UserToken = result;
+						result.SendArgs.UserToken = result;
 
-				if ( !s.ReceiveAsync( result.ReceiveArgs ) )
-				{
-					SendAndReceiveArgs_Completed( s, result.ReceiveArgs );
-				}
+						if ( connectedEntityList.TryAdd( result.Id, result ) )
+						{
+							if ( !result.CurrentSocket.ReceiveAsync( result.ReceiveArgs ) )
+							{
+								SendAndReceiveArgs_Completed( result.CurrentSocket, result.ReceiveArgs );
+							}
 
-				if ( !s.SendAsync( result.SendArgs ) )
-				{
-					SendAndReceiveArgs_Completed( s, result.SendArgs );
-				}
+							if ( !result.CurrentSocket.SendAsync( result.SendArgs ) )
+							{
+								SendAndReceiveArgs_Completed( result.CurrentSocket, result.SendArgs );
+							}
 
-				if ( connectedEntityList.TryAdd( result.Id, result ) )
-				{
-					OnConnectedStatusChange( this, result.Id, true, error );
+							//SocketError.Success 状态回传null, 表示没有异常
+							OnConnectedStatusChange( this, result.Id, true, null );
+						}
+						else
+						{
+							FreeUserToken( result );
+							semaphore.Release();
+						}
+					}
 				}
 				else
 				{
 					CloseSocket( s );
-					throw new Exception( $"无法建立 Socket 连接: {error.ToString()}, id:{result.Id} handle:{s?.Handle}" );
 				}
 			}
 			catch ( Exception ex )
 			{
 				CloseSocket( s );
-				OnConnectedStatusChange( this, result == null ? (int)s.Handle : result.Id, false, error );
+				OnError( this, ex );
 			}
 
 			return result;
@@ -298,24 +284,15 @@ namespace IOCPSocket
 		{
 			try
 			{
-				if ( token != null )
-				{
-					if ( connectedEntityList.TryRemove( token.Id, out token ) )
-					{
-						saePool.Push( token.ReceiveArgs );
-						saePool.Push( token.SendArgs );
-						token.Reset();
-						entityPool.Push( token );
-						OnConnectedStatusChange( this, token.Id, false, error );
-					}
-				}
-
-				CloseSocket( s );
+				FreeUserToken( RemoveUserToken( token ) );
 			}
 			catch ( Exception ex )
 			{
+				OnError( this, ex );
+			}
+			finally
+			{
 				CloseSocket( s );
-				OnConnectedStatusChange( this, token == null ? (int)s.Handle : token.Id, false, error );
 			}
 		}
 
@@ -350,6 +327,79 @@ namespace IOCPSocket
 		}
 
 		/// <summary>
+		/// 获取一个 userToken 资源
+		/// </summary>
+		/// <returns></returns>
+		protected virtual SocketUserToken GetUserToken()
+		{
+			SocketUserToken result = null;
+
+			if ( !entityPool.TryPop( out result ) )
+			{
+				result = new SocketUserToken();
+				result.ReceiveArgs = saePool.Pop();
+				result.SendArgs = saePool.Pop();
+			}
+
+			return result;
+		}
+
+		/// <summary>
+		/// 释放 token 资源, 将 token 放回池
+		/// </summary>
+		/// <param name="token">要释放的 token</param>
+		protected virtual void FreeUserToken( SocketUserToken token )
+		{
+			if ( token != null )
+			{
+				CloseSocket( token.CurrentSocket );
+				token.Reset();
+				entityPool.Push( token );
+			}
+		}
+
+		/// <summary>
+		/// 从已连接集合中移除指定的 token
+		/// </summary>
+		/// <param name="token"></param>
+		/// <returns></returns>
+		protected virtual SocketUserToken RemoveUserToken( SocketUserToken token )
+		{
+			SocketUserToken result = null;
+
+			if ( token != null )
+			{
+				if ( connectedEntityList.TryRemove( token.Id, out result ) )
+				{
+					semaphore.Release();
+					OnConnectedStatusChange( this, token.Id, false, null );
+				}
+			}
+
+			return result;
+		}
+
+		/// <summary>
+		/// 关闭已连接 socket 集合
+		/// </summary>
+		/// <returns></returns>
+		protected virtual async Task CloseConnectList()
+		{
+			await Task.Run( () =>
+			{
+				if ( this.connectedEntityList != null )
+				{
+					connectedEntityList.AsParallel().ForAll( f =>
+					{
+						FreeUserToken( RemoveUserToken( f.Value ) );
+					} );
+
+					this.connectedEntityList.Clear();
+				}
+			} );
+		}
+
+		/// <summary>
 		/// 关闭 socket
 		/// </summary>
 		/// <param name="s"></param>
@@ -365,24 +415,11 @@ namespace IOCPSocket
 				{
 				}
 
+				//s.DisconnectAsync( true );
 				s.Close();
+				s.Dispose();
+				s = null;
 			}
-		}
-
-		/// <summary>
-		/// 释放 token 资源, 将 token 放回池
-		/// </summary>
-		/// <param name="token"></param>
-		protected virtual void FreeUserToken( SocketUserToken token )
-		{
-			CloseSocket( token.CurrentSocket );
-
-			this.saePool.Push( token.ReceiveArgs );
-			this.saePool.Push( token.SendArgs );
-			token.CurrentSocket = null;
-			token.ReceiveArgs = null;
-			token.SendArgs = null;
-			this.entityPool.Push( token );
 		}
 	}
 }

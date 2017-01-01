@@ -18,7 +18,12 @@ namespace SocketStressTest
 	public class SocketClientManager : SocketManagerBase
 	{
 		private IPEndPoint serverPoint;
-		
+
+		/// <summary>
+		/// 客户端运行状态变化事件
+		/// </summary>
+		public event EventHandler<bool> ClientManagerStatusChangeEvent;
+
 
 
 		/// <summary>
@@ -36,7 +41,6 @@ namespace SocketStressTest
 		public async Task StartAsync( string domainOrIP, int port, bool preferredIPv4 = true )
 		{
 			serverPoint = await GetIPEndPoint( domainOrIP, port, preferredIPv4 );
-			this.semaphore = new Semaphore( this.maxConnCount, this.maxConnCount );
 
 			Parallel.For( 0, maxConnCount, i =>
 			{
@@ -56,6 +60,8 @@ namespace SocketStressTest
 					OnError( this, ex );
 				}
 			} );
+
+			OnClientManagerStatusChange( this, true );
 		}
 
 		/// <summary>
@@ -65,11 +71,7 @@ namespace SocketStressTest
 		public async Task StopAsync()
 		{
 			await CloseConnectList();
-
-			this.connectedEntityList.Clear();
-			this.semaphore.Close();
-			this.semaphore.Dispose();
-			this.semaphore = null;
+			OnClientManagerStatusChange( this, false );
 		}
 
 		
@@ -82,23 +84,30 @@ namespace SocketStressTest
 		{
 			if ( e.SocketError == SocketError.Success )
 			{
-				if ( this.semaphore != null )
-				{
-					this.semaphore.WaitOne();
-				}
 				e.UserToken = ToConnCompletedSuccess( e.ConnectSocket );
 			}
 			else
 			{
 				ToConnCompletedError( e.ConnectSocket, e.SocketError, e.UserToken as SocketUserToken );
-				if ( this.semaphore != null )
-				{
-					this.semaphore.Release();
-				}
 			}
 
 			//监听下一个请求
 			e.UserToken = null;
+			e.Dispose();
+			e = null;
+		}
+
+		/// <summary>
+		/// 引发 ClientManagerStatusChangeEvent 事件
+		/// </summary>
+		/// <param name="sender"></param>
+		/// <param name="e"></param>
+		protected virtual void OnClientManagerStatusChange( object sender, bool e )
+		{
+			if ( ClientManagerStatusChangeEvent != null )
+			{
+				ClientManagerStatusChangeEvent( sender, e );
+			}
 		}
 	}
 }

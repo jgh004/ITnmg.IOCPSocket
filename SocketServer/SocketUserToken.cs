@@ -13,16 +13,15 @@ namespace IOCPSocket
 	public class SocketUserToken
 	{
 		/// <summary>
-		/// 获取唯一Id
+		/// 获取或设置唯一Id
 		/// </summary>
 		public int Id
 		{
-			get;
-			private set;
+			get; set;
 		}
 
 		/// <summary>
-		/// 当前 socket 连接
+		/// 获取或设置当前 socket 连接
 		/// </summary>
 		public Socket CurrentSocket
 		{
@@ -50,10 +49,9 @@ namespace IOCPSocket
 		/// <summary>
 		/// 初始化 SocketUserToken 实例
 		/// </summary>
-		/// <param name="id">指定唯一Id</param>
-		public SocketUserToken( int id )
+		public SocketUserToken()
 		{
-			Id = id;
+			this.Reset();
 		}
 
 
@@ -63,10 +61,8 @@ namespace IOCPSocket
 		/// </summary>
 		public void Reset()
 		{
-			this.Id = 0;
+			this.Id = -1;
 			this.CurrentSocket = null;
-			this.SendArgs = null;
-			this.ReceiveArgs = null;
 		}
 	}
 }

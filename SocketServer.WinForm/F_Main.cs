@@ -15,9 +15,9 @@ namespace SocketServer.WinForm
 {
 	public partial class F_Main : Form
 	{
-		SynchronizationContext sync = null;
-		SocketServerManager server = null;
-		bool isInit = true;
+		SynchronizationContext sync;
+		SocketServerManager server;
+		bool isInit = false;
 
 		public F_Main()
 		{
@@ -36,14 +36,37 @@ namespace SocketServer.WinForm
 
 		private void bt_Init_Click( object sender, EventArgs e )
 		{
+			InitAsync();
+		}
+
+		private void bt_Start_Click( object sender, EventArgs e )
+		{
+			StartAsync();
+		}
+
+		private void bt_Stop_Click( object sender, EventArgs e )
+		{
+			try
+			{
+				SetBtns( false );
+				server.StopAsync();
+			}
+			catch ( Exception ex )
+			{
+				SetBtns( false );
+			}
+		}
+
+		private async Task InitAsync()
+		{
 			this.bt_Init.Enabled = false;
 			int maxCount = Convert.ToInt32( this.tb_MaxConnection.Text.Trim() );
 
-			this.server.InitAsync( maxCount, maxCount, 8 * 1024, 100000, 100000 ).ContinueWith( f =>
+			await this.server.InitAsync( maxCount, maxCount, 4 * 1024, 100000, 100000 ).ContinueWith( f =>
 			{
 				if ( f.Exception == null )
 				{
-					this.isInit = false;
+					this.isInit = true;
 				}
 				else
 				{
@@ -57,14 +80,13 @@ namespace SocketServer.WinForm
 			} );
 		}
 
-		private void bt_Start_Click( object sender, EventArgs e )
+		private async Task StartAsync()
 		{
 			try
 			{
-				if ( this.isInit )
+				if ( !isInit )
 				{
-					this.ShowMessageBox( "正在初始化中, 请等待." );
-					return;
+					await InitAsync();
 				}
 
 				SetBtns( true );
@@ -73,7 +95,7 @@ namespace SocketServer.WinForm
 				int maxConn = Convert.ToInt32( this.tb_MaxConnection.Text.Trim() );
 				bool firstIPType = this.cob_FirsIPType.SelectedIndex == 0;
 
-				server.StartAsync( ip, port, firstIPType ).ContinueWith( f =>
+				await server.StartAsync( ip, port, firstIPType ).ContinueWith( f =>
 				{
 					if ( f.IsCompleted )
 					{
@@ -93,23 +115,10 @@ namespace SocketServer.WinForm
 			{
 				if ( server != null )
 				{
-					server.StopAsync();
+					await server.StopAsync();
 				}
 
 				SetBtns( true );
-			}
-		}
-
-		private void bt_Stop_Click( object sender, EventArgs e )
-		{
-			try
-			{
-				SetBtns( false );
-				server.StopAsync();
-			}
-			catch ( Exception ex )
-			{
-				SetBtns( false );
 			}
 		}
 
@@ -131,7 +140,7 @@ namespace SocketServer.WinForm
 				this.textBox1.Text = e.ConnectedCount.ToString();
 			}, e );
 
-			if ( e.Error != SocketError.Success )
+			if ( e.Error != null )
 			{
 				WriteConsole( $"UserTokenId:{e.UserTokenId}, Status:{e.Status}, ConnCount:{e.ConnectedCount}, Error:{e.Error}" );
 			}
