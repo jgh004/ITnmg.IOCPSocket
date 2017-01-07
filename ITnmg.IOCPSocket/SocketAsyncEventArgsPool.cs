@@ -59,7 +59,7 @@ namespace ITnmg.IOCPSocket
 			socketAsyncCompleted = completed;
 			singleMaxBufferSize = singleBufferMaxSize;
 			//缓存池大小与SocketAsyncEventArgs池大小相同,因为每个SocketAsyncEventArgs只用一个缓存
-			bufferManager = new ConcurrentBufferManager( singleBufferMaxSize * capacity, singleBufferMaxSize );
+			bufferManager = ConcurrentBufferManager.CreateBufferManager( singleBufferMaxSize * capacity, singleBufferMaxSize );
 			pool = new ConcurrentStack<SocketAsyncEventArgs>();
 
 			for ( int i = 0; i < capacity; i++ )
@@ -80,7 +80,8 @@ namespace ITnmg.IOCPSocket
 		/// </summary>
 		/// <param name="capacity">初始状态容量大小</param>
 		/// <param name="singleMaxBufferSize">SocketAsyncEventArgs.Buffer 的最大 Length, 默认为32K</param>
-		public SocketAsyncEventArgsPool( int capacity, int singleMaxBufferSize = 32 * 1024 ) : this( capacity, null, singleMaxBufferSize )
+		public SocketAsyncEventArgsPool( int capacity, int singleMaxBufferSize = 32 * 1024 ) 
+			: this( capacity, null, singleMaxBufferSize )
 		{
 		}
 

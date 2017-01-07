@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.Linq;
 using System.Net.Sockets;
 using System.Text;
@@ -12,6 +14,12 @@ namespace ITnmg.IOCPSocket
 	/// </summary>
 	public class SocketUserToken
 	{
+		/// <summary>
+		/// 缓存管理
+		/// </summary>
+		private ConcurrentBufferManager bufferManager;
+
+
 		/// <summary>
 		/// 获取或设置唯一Id
 		/// </summary>
@@ -44,13 +52,42 @@ namespace ITnmg.IOCPSocket
 			get; set;
 		}
 
+		/// <summary>
+		/// 接收数用的缓存
+		/// </summary>
+		public SocketReceiveBuffer ReceiveBuffer
+		{
+			get; set;
+		}
+
+		/// <summary>
+		/// 发送数据队列
+		/// </summary>
+		public ConcurrentQueue<BufferMap> SendBuffer
+		{
+			get; set;
+		}
+
+		/// <summary>
+		/// 获取通信协议
+		/// </summary>
+		public ISocketProtocol Protocol
+		{
+			get;
+			private set;
+		}
+
 
 
 		/// <summary>
 		/// 初始化 SocketUserToken 实例
 		/// </summary>
-		public SocketUserToken()
+		public SocketUserToken( ISocketProtocol protocol, int singleBufferMaxSize )
 		{
+			this.Protocol = protocol;
+			this.bufferManager = ConcurrentBufferManager.CreateBufferManager( 2, singleBufferMaxSize );
+			this.ReceiveBuffer = new SocketReceiveBuffer();
+			this.SendBuffer = new ConcurrentQueue<IOCPSocket.BufferMap>();
 			this.Reset();
 		}
 
@@ -63,6 +100,67 @@ namespace ITnmg.IOCPSocket
 		{
 			this.Id = -1;
 			this.CurrentSocket = null;
+			this.bufferManager.Clear();
+		}
+
+		/// <summary>
+		/// 取出接收到的数据放到缓存队列
+		/// </summary>
+		/// <returns></returns>
+		public void ProcessReceiveBuffer()
+		{
+			//从缓存池中取一段缓存
+			var buffer = bufferManager.TakeBuffer( ReceiveArgs.BytesTransferred );
+			Buffer.BlockCopy( ReceiveArgs.Buffer, ReceiveArgs.Offset, buffer, 0, buffer.Length );
+			//将数据添加到队列
+			ReceiveBuffer.Enqueue( buffer );
+		}
+	}
+
+	/// <summary>
+	/// Socket 接收数据用的缓存
+	/// </summary>
+	public class SocketReceiveBuffer
+	{
+		/// <summary>
+		/// 接收的不完整的粘包数据
+		/// </summary>
+		public byte[] fragmentaryBuffer;
+
+		/// <summary>
+		/// 数据缓存队列
+		/// </summary>
+		public ConcurrentQueue<BufferMap> BufferQueue
+		{
+			get; set;
+		}
+
+
+		public SocketReceiveBuffer()
+		{
+			this.BufferQueue = new ConcurrentQueue<IOCPSocket.BufferMap>();
+		}
+	}
+
+	/// <summary>
+	/// byte[] 缓存
+	/// </summary>
+	public class BufferMap
+	{
+		/// <summary>
+		/// 带有数据的字节数组
+		/// </summary>
+		public byte[] Buffer
+		{
+			get; set;
+		}
+
+		/// <summary>
+		/// 数组中有效数据的长度
+		/// </summary>
+		public int Length
+		{
+			get; set;
 		}
 	}
 }

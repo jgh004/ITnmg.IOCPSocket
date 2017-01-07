@@ -61,7 +61,7 @@ namespace ITnmg.IOCPSocket.WinFormServer
 			this.bt_Init.Enabled = false;
 			int maxCount = Convert.ToInt32( this.tb_MaxConnection.Text.Trim() );
 
-			await this.server.InitAsync( maxCount, maxCount, 4 * 1024, 100000, 100000 ).ContinueWith( f =>
+			await this.server.InitAsync( maxCount, maxCount, new TextProtocol(), 4 * 1024, 100000, 100000 ).ContinueWith( f =>
 			{
 				if ( f.Exception == null )
 				{

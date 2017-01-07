@@ -6,10 +6,7 @@ using System.Threading.Tasks;
 
 namespace ITnmg.IOCPSocket
 {
-    /// <summary>
-    /// Socket 协议
-    /// </summary>
-    public interface ISocketProtocol
+	public class TextProtocol : ISocketProtocol
 	{
-    }
+	}
 }

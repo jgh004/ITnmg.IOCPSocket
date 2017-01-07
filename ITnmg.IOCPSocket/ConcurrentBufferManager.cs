@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 namespace ITnmg.IOCPSocket
 {
 	/// <summary>
-	/// 线程安全的缓存管理类
+	/// 线程安全的动态缓存管理类
 	/// </summary>
 	public class ConcurrentBufferManager : IDisposable
 	{
@@ -25,12 +25,21 @@ namespace ITnmg.IOCPSocket
 		/// </summary>
 		/// <param name="maxBufferPoolSize">缓冲池的最大字节数</param>
 		/// <param name="singleBufferMaxSize">单个缓冲区的最大字节数</param>
-		public ConcurrentBufferManager( long maxBufferPoolSize, int singleBufferMaxSize )
+		private ConcurrentBufferManager( long maxBufferPoolSize, int singleBufferMaxSize )
 		{
 			manager = BufferManager.CreateBufferManager( maxBufferPoolSize, singleBufferMaxSize );
 		}
 
 
+		/// <summary>
+		/// 初始化 ConcurrentBufferManager 类的新实例
+		/// </summary>
+		/// <param name="maxBufferPoolSize">缓冲池的最大字节数</param>
+		/// <param name="singleBufferMaxSize">单个缓冲区的最大字节数</param>
+		public static ConcurrentBufferManager CreateBufferManager( long maxBufferPoolSize, int singleBufferMaxSize )
+		{
+			return new ConcurrentBufferManager( maxBufferPoolSize, singleBufferMaxSize );
+		}
 
 		/// <summary>
 		/// 从缓冲池获取一个至少为指定大小的缓冲区

@@ -21,6 +21,11 @@ namespace ITnmg.IOCPSocket
 		protected SocketAsyncEventArgsPool saePool;
 
 		/// <summary>
+		/// userToken 缓存集合
+		/// </summary>
+		protected ConcurrentStack<SocketUserToken> entityPool;
+
+		/// <summary>
 		/// 允许的最大连接数量
 		/// </summary>
 		protected int maxConnCount;
@@ -49,11 +54,6 @@ namespace ITnmg.IOCPSocket
 		/// 信号量,初始设为 maxConnCount
 		/// </summary>
 		protected Semaphore semaphore;
-
-		/// <summary>
-		/// userToken 缓存集合
-		/// </summary>
-		protected ConcurrentStack<SocketUserToken> entityPool;
 
 		/// <summary>
 		/// 已连接的集合
@@ -94,6 +94,15 @@ namespace ITnmg.IOCPSocket
 			}
 		}
 
+		/// <summary>
+		/// 获取通信协议
+		/// </summary>
+		public ISocketProtocol Protocol
+		{
+			get;
+			protected set;
+		}
+
 
 
 		/// <summary>
@@ -113,7 +122,7 @@ namespace ITnmg.IOCPSocket
 		/// <param name="singleBufferMaxSize">每个 socket 读写缓存最大字节数, 默认为8k</param>
 		/// <param name="sendTimeOut">socket 发送超时时长, 以毫秒为单位</param>
 		/// <param name="receiveTimeOut">socket 接收超时时长, 以毫秒为单位</param>
-		public virtual async Task InitAsync( int maxConnectionCount, int initConnectionResourceCount, int singleBufferMaxSize = 8 * 1024
+		public virtual async Task InitAsync( int maxConnectionCount, int initConnectionResourceCount, ISocketProtocol protocol, int singleBufferMaxSize = 8 * 1024
 			, int sendTimeOut = 10000, int receiveTimeOut = 10000 )
 		{
 			this.maxConnCount = maxConnectionCount;
@@ -134,7 +143,7 @@ namespace ITnmg.IOCPSocket
 
 				Parallel.For( 0, initConnectionResourceCount, i =>
 				{
-					SocketUserToken token = new SocketUserToken();
+					SocketUserToken token = new SocketUserToken( protocol, singleBufferMaxSize );
 					token.ReceiveArgs = saePool.Pop();
 					token.SendArgs = saePool.Pop();
 					this.entityPool.Push( token );
@@ -313,12 +322,6 @@ namespace ITnmg.IOCPSocket
 					case SocketAsyncOperation.Send:
 						ProcessSend( e.UserToken as SocketUserToken );
 						break;
-					case SocketAsyncOperation.Accept:
-						break;
-					case SocketAsyncOperation.Connect:
-						break;
-					case SocketAsyncOperation.Disconnect:
-						break;
 					default:
 						FreeUserToken( RemoveUserToken( e.UserToken as SocketUserToken ) );
 						break;
@@ -330,6 +333,10 @@ namespace ITnmg.IOCPSocket
 			}
 		}
 
+		/// <summary>
+		/// 处理接收的数据
+		/// </summary>
+		/// <param name="token"></param>
 		protected virtual void ProcessReceive( SocketUserToken token )
 		{
 			if ( token != null )
@@ -337,7 +344,7 @@ namespace ITnmg.IOCPSocket
 				//读取数据大于0,说明连接正常
 				if ( token.ReceiveArgs.BytesTransferred > 0 )
 				{
-					//token.ReceiveArgs.Buffer( count, token.ReceiveArgs.Offset, count );
+					token.ProcessReceiveBuffer();
 				}
 				else //否则关闭连接,释放资源
 				{
@@ -346,6 +353,10 @@ namespace ITnmg.IOCPSocket
 			}
 		}
 
+		/// <summary>
+		/// 处理发送的数据
+		/// </summary>
+		/// <param name="token"></param>
 		protected virtual void ProcessSend( SocketUserToken token )
 		{
 			if ( token != null )
@@ -363,7 +374,7 @@ namespace ITnmg.IOCPSocket
 
 			if ( !entityPool.TryPop( out result ) )
 			{
-				result = new SocketUserToken();
+				result = new SocketUserToken( Protocol, singleBufferMaxSize );
 				result.ReceiveArgs = saePool.Pop();
 				result.SendArgs = saePool.Pop();
 			}

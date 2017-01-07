@@ -71,6 +71,13 @@
     <Compile Include="SocketAsyncEventArgsPool.cs" />
     <Compile Include="SocketUserToken.cs" />
     <Compile Include="SocketServerManager.cs" />
+    <Compile Include="TextProtocol.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ITnmg.IOCPSocket.Interface\ITnmg.IOCPSocket.Interface.csproj">
+      <Project>{aefceba4-0e8e-429d-ad10-4ace3bf794ff}</Project>
+      <Name>ITnmg.IOCPSocket.Interface</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
