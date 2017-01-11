@@ -95,9 +95,9 @@ namespace ITnmg.IOCPSocket
 		}
 
 		/// <summary>
-		/// 获取通信协议
+		/// 获取 Socket 数据处理对象
 		/// </summary>
-		public ISocketProtocol Protocol
+		public ISocketBufferProcess BufferProcess
 		{
 			get;
 			protected set;
@@ -122,7 +122,7 @@ namespace ITnmg.IOCPSocket
 		/// <param name="singleBufferMaxSize">每个 socket 读写缓存最大字节数, 默认为8k</param>
 		/// <param name="sendTimeOut">socket 发送超时时长, 以毫秒为单位</param>
 		/// <param name="receiveTimeOut">socket 接收超时时长, 以毫秒为单位</param>
-		public virtual async Task InitAsync( int maxConnectionCount, int initConnectionResourceCount, ISocketProtocol protocol, int singleBufferMaxSize = 8 * 1024
+		public virtual async Task InitAsync( int maxConnectionCount, int initConnectionResourceCount, ISocketBufferProcess bufferProcess, int singleBufferMaxSize = 8 * 1024
 			, int sendTimeOut = 10000, int receiveTimeOut = 10000 )
 		{
 			this.maxConnCount = maxConnectionCount;
@@ -143,7 +143,7 @@ namespace ITnmg.IOCPSocket
 
 				Parallel.For( 0, initConnectionResourceCount, i =>
 				{
-					SocketUserToken token = new SocketUserToken( protocol, singleBufferMaxSize );
+					SocketUserToken token = new SocketUserToken( bufferProcess, singleBufferMaxSize );
 					token.ReceiveArgs = saePool.Pop();
 					token.SendArgs = saePool.Pop();
 					this.entityPool.Push( token );
@@ -242,34 +242,30 @@ namespace ITnmg.IOCPSocket
 				if ( semaphore.WaitOne( 3000 ) )
 				{
 					result = GetUserToken();
+					result.CurrentSocket = s;
+					result.Id = (int)s.Handle;
+					result.ReceiveArgs.UserToken = result;
+					result.SendArgs.UserToken = result;
 
-					if ( result != null )
+					if ( connectedEntityList.TryAdd( result.Id, result ) )
 					{
-						result.CurrentSocket = s;
-						result.Id = (int)s.Handle;
-						result.ReceiveArgs.UserToken = result;
-						result.SendArgs.UserToken = result;
-
-						if ( connectedEntityList.TryAdd( result.Id, result ) )
+						if ( !result.CurrentSocket.ReceiveAsync( result.ReceiveArgs ) )
 						{
-							if ( !result.CurrentSocket.ReceiveAsync( result.ReceiveArgs ) )
-							{
-								SendAndReceiveArgs_Completed( result.CurrentSocket, result.ReceiveArgs );
-							}
-
-							if ( !result.CurrentSocket.SendAsync( result.SendArgs ) )
-							{
-								SendAndReceiveArgs_Completed( result.CurrentSocket, result.SendArgs );
-							}
-
-							//SocketError.Success 状态回传null, 表示没有异常
-							OnConnectedStatusChange( this, result.Id, true, null );
+							SendAndReceiveArgs_Completed( this, result.ReceiveArgs );
 						}
-						else
+
+						if ( !result.CurrentSocket.SendAsync( result.SendArgs ) )
 						{
-							FreeUserToken( result );
-							semaphore.Release();
+							SendAndReceiveArgs_Completed( this, result.SendArgs );
 						}
+
+						//SocketError.Success 状态回传null, 表示没有异常
+						OnConnectedStatusChange( this, result.Id, true, null );
+					}
+					else
+					{
+						FreeUserToken( result );
+						semaphore.Release();
 					}
 				}
 				else
@@ -312,55 +308,55 @@ namespace ITnmg.IOCPSocket
 		/// <param name="e"></param>
 		protected virtual void SendAndReceiveArgs_Completed( object sender, SocketAsyncEventArgs e )
 		{
+			var token = e.UserToken as SocketUserToken;
+
 			if ( e.SocketError == SocketError.Success )
 			{
 				switch ( e.LastOperation )
 				{
 					case SocketAsyncOperation.Receive:
-						ProcessReceive( e.UserToken as SocketUserToken );
+						if ( token != null )
+						{
+							//读取数据大于0,说明连接正常
+							if ( token.ReceiveArgs.BytesTransferred > 0 )
+							{
+								try
+								{
+									token.ProcessReceive();
+								}
+								catch ( Exception ex )
+								{
+									FreeUserToken( RemoveUserToken( token ) );
+								}
+							}
+							else //否则关闭连接,释放资源
+							{
+								FreeUserToken( RemoveUserToken( token ) );
+							}
+						}
 						break;
 					case SocketAsyncOperation.Send:
-						ProcessSend( e.UserToken as SocketUserToken );
+						if ( token != null )
+						{
+							try
+							{
+								token.ProcessSend();
+							}
+							catch ( Exception ex )
+							{
+								//否则关闭连接,释放资源
+								FreeUserToken( RemoveUserToken( token ) );
+							}
+						}
 						break;
 					default:
-						FreeUserToken( RemoveUserToken( e.UserToken as SocketUserToken ) );
+						FreeUserToken( RemoveUserToken( token ) );
 						break;
 				}
 			}
 			else
 			{
-				FreeUserToken( RemoveUserToken( e.UserToken as SocketUserToken ) );
-			}
-		}
-
-		/// <summary>
-		/// 处理接收的数据
-		/// </summary>
-		/// <param name="token"></param>
-		protected virtual void ProcessReceive( SocketUserToken token )
-		{
-			if ( token != null )
-			{
-				//读取数据大于0,说明连接正常
-				if ( token.ReceiveArgs.BytesTransferred > 0 )
-				{
-					token.ProcessReceiveBuffer();
-				}
-				else //否则关闭连接,释放资源
-				{
-					FreeUserToken( RemoveUserToken( token ) );
-				}
-			}
-		}
-
-		/// <summary>
-		/// 处理发送的数据
-		/// </summary>
-		/// <param name="token"></param>
-		protected virtual void ProcessSend( SocketUserToken token )
-		{
-			if ( token != null )
-			{
+				FreeUserToken( RemoveUserToken( token ) );
 			}
 		}
 
@@ -374,7 +370,7 @@ namespace ITnmg.IOCPSocket
 
 			if ( !entityPool.TryPop( out result ) )
 			{
-				result = new SocketUserToken( Protocol, singleBufferMaxSize );
+				result = new SocketUserToken( BufferProcess, singleBufferMaxSize );
 				result.ReceiveArgs = saePool.Pop();
 				result.SendArgs = saePool.Pop();
 			}

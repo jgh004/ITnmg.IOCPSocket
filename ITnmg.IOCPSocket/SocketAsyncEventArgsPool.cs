@@ -22,7 +22,7 @@ namespace ITnmg.IOCPSocket
 		/// <summary>
 		/// 缓存管理
 		/// </summary>
-		private ConcurrentBufferManager bufferManager;
+		private BufferManager bufferManager;
 
 		/// <summary>
 		/// SocketAsyncEventArgs 完成时的方法
@@ -59,7 +59,7 @@ namespace ITnmg.IOCPSocket
 			socketAsyncCompleted = completed;
 			singleMaxBufferSize = singleBufferMaxSize;
 			//缓存池大小与SocketAsyncEventArgs池大小相同,因为每个SocketAsyncEventArgs只用一个缓存
-			bufferManager = ConcurrentBufferManager.CreateBufferManager( singleBufferMaxSize * capacity, singleBufferMaxSize );
+			bufferManager = BufferManager.CreateBufferManager( singleBufferMaxSize * capacity, singleBufferMaxSize );
 			pool = new ConcurrentStack<SocketAsyncEventArgs>();
 
 			for ( int i = 0; i < capacity; i++ )
@@ -154,7 +154,7 @@ namespace ITnmg.IOCPSocket
 
 			if ( this.bufferManager != null )
 			{
-				this.bufferManager.Dispose();
+				this.bufferManager.Clear();
 				this.bufferManager = null;
 			}
 			

@@ -6,7 +6,15 @@ using System.Threading.Tasks;
 
 namespace ITnmg.IOCPSocket
 {
-	public class TextProtocol : ISocketProtocol
+	public class TextProtocol : ISocketBufferProcess
 	{
+		public void GetNextSendBuffer( ref byte[] buffer, ref int effectiveLength )
+		{
+		}
+
+		public bool ProcessReceive( byte[] buffer, int effectiveLength )
+		{
+			return true;
+		}
 	}
 }

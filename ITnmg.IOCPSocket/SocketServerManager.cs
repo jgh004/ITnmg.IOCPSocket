@@ -122,7 +122,42 @@ namespace ITnmg.IOCPSocket
 		{
 			if ( e.SocketError == SocketError.Success )
 			{
-				e.UserToken = ToConnCompletedSuccess( e.AcceptSocket );
+				//等待3秒,如果有空余资源,接收连接,否则断开socket.
+				if ( semaphore.WaitOne( 3000 ) )
+				{
+					var result = GetUserToken();
+					result.CurrentSocket = e.AcceptSocket;
+					result.Id = (int)e.AcceptSocket.Handle;
+					result.ReceiveArgs.UserToken = result;
+					result.SendArgs.UserToken = result;
+
+					if ( connectedEntityList.TryAdd( result.Id, result ) )
+					{
+						if ( !result.CurrentSocket.ReceiveAsync( result.ReceiveArgs ) )
+						{
+							SendAndReceiveArgs_Completed( this, result.ReceiveArgs );
+						}
+
+						if ( !result.CurrentSocket.SendAsync( result.SendArgs ) )
+						{
+							SendAndReceiveArgs_Completed( this, result.SendArgs );
+						}
+
+						//SocketError.Success 状态回传null, 表示没有异常
+						OnConnectedStatusChange( this, result.Id, true, null );
+					}
+					else
+					{
+						FreeUserToken( result );
+						semaphore.Release();
+					}
+				}
+				else
+				{
+					CloseSocket( e.AcceptSocket );
+				}
+
+				//e.UserToken = ToConnCompletedSuccess( e.AcceptSocket );
 			}
 			else
 			{
