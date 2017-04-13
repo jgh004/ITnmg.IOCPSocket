@@ -69,12 +69,7 @@ namespace ITnmg.IOCPSocket
 		/// </summary>
 		public SocketUserToken( ISocketBufferProcess bufferProcess, int singleBufferMaxSize )
 		{
-			if ( bufferProcess == null )
-			{
-				throw new ArgumentNullException( "bufferProcess" );
-			}
-
-			this.BufferProcess = bufferProcess;
+			this.BufferProcess = bufferProcess ?? throw new ArgumentNullException( "bufferProcess" );
 			this.bufferManager = BufferManager.CreateBufferManager( 2, singleBufferMaxSize );
 			this.Reset();
 		}
